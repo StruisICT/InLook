@@ -1,0 +1,61 @@
+From: "Jane Doe" <jane.doe@example.com>
+To: "Daan Struis" <dstruis@example.com>
+Cc: support@struis-ict.nl
+Subject: Welkom bij Struis EML Viewer — een test bericht
+Date: Fri, 08 May 2026 10:30:00 +0200
+Message-ID: <test-001@struis-ict.nl>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="outer"
+
+--outer
+Content-Type: multipart/alternative; boundary="inner"
+
+--inner
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Beste Daan,
+
+Dit is een eenvoudige plain-text fallback voor mail clients die geen HTML weergeven.
+
+Met vriendelijke groet,
+Jane
+
+--inner
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body>
+<h2 style="color:#2c5282">Beste Daan,</h2>
+<p>Dit is een <strong>HTML versie</strong> van het bericht. De Struis EML Viewer
+zou dit netjes moeten renderen — inclusief <em>opmaak</em>, <code>code</code>,
+en eventuele <a href="https://struis-ict.nl">links</a>.</p>
+<ul>
+  <li>Headers worden bovenaan getoond</li>
+  <li>De body draait in een afgeschermde iframe</li>
+  <li>Bijlagen staan onderaan</li>
+</ul>
+<p>Met vriendelijke groet,<br><strong>Jane Doe</strong></p>
+<img src="https://example.com/tracking-pixel.png" width="1" height="1" alt="">
+</body></html>
+
+--inner--
+
+--outer
+Content-Type: text/plain; charset=utf-8; name="readme.txt"
+Content-Disposition: attachment; filename="readme.txt"
+Content-Transfer-Encoding: 7bit
+
+This is a test attachment from Struis ICT.
+It demonstrates that the EML viewer can detect and list attachments.
+
+--outer
+Content-Type: application/pdf; name="invoice.pdf"
+Content-Disposition: attachment; filename="invoice.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4K
+ZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4K
+ZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0YK
+
+--outer--

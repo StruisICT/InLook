@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  InLook — MSI installer manifest.
+  Free Software from Struis ICT.
+
+  The UpgradeCode below MUST stay constant across releases so future
+  versions install as upgrades rather than side-by-side.
+-->
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product Id='*'
+             Name='InLook'
+             UpgradeCode='8E5A3C2B-1D4F-4E7A-9B6C-7D8E9F0A1B2C'
+             Manufacturer='Struis ICT'
+             Language='1033'
+             Codepage='1252'
+             Version='0.1.0'>
+
+        <Package Id='*'
+                 Keywords='InLook,EML viewer,email,Struis ICT'
+                 Description='InLook 0.1.0 — fast EML viewer'
+                 Manufacturer='Struis ICT'
+                 InstallerVersion='450'
+                 Languages='1033'
+                 Compressed='yes'
+                 InstallScope='perMachine'
+                 SummaryCodepage='1252' />
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of InLook is already installed. Setup will now exit.' />
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' />
+
+        <Icon Id='ProductIcon.exe' SourceFile='target\release\inlook.exe' />
+        <Property Id='ARPPRODUCTICON' Value='ProductIcon.exe' />
+        <Property Id='ARPCONTACT' Value='Struis ICT' />
+        <Property Id='ARPHELPLINK' Value='https://struis-ict.nl' />
+        <Property Id='ARPCOMMENTS' Value='Free Software EML viewer from Struis ICT' />
+        <Property Id='ARPNOREPAIR' Value='1' />
+
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='ProgramFiles64Folder'>
+                <Directory Id='APPLICATIONFOLDER' Name='InLook'>
+
+                    <Component Id='MainExeComponent'
+                               Guid='9F2B5C4A-3E6D-4F1B-A8C2-1E3D5F7A9B0C'
+                               Win64='yes'>
+                        <File Id='MainExe'
+                              Name='inlook.exe'
+                              DiskId='1'
+                              Source='target\release\inlook.exe'
+                              KeyPath='yes'>
+                            <Shortcut Id='StartMenuShortcut'
+                                      Directory='ProgramMenuFolder'
+                                      Name='InLook'
+                                      Description='Open .eml email files'
+                                      WorkingDirectory='APPLICATIONFOLDER'
+                                      Icon='ProductIcon.exe'
+                                      IconIndex='0'
+                                      Advertise='yes' />
+                        </File>
+
+                        <!-- .eml file association — written declaratively so
+                             uninstall removes it cleanly. -->
+                        <ProgId Id='StruisICT.InLook'
+                                Description='EML Email Message'
+                                Icon='MainExe'
+                                IconIndex='0'
+                                Advertise='no'>
+                            <Extension Id='eml' ContentType='message/rfc822'>
+                                <Verb Id='open'
+                                      Command='Open'
+                                      TargetFile='MainExe'
+                                      Argument='"%1"' />
+                            </Extension>
+                        </ProgId>
+                    </Component>
+
+                </Directory>
+            </Directory>
+
+            <Directory Id='ProgramMenuFolder' />
+        </Directory>
+
+        <Feature Id='Complete'
+                 Title='InLook'
+                 Description='Viewer executable, file association for .eml, and Start Menu shortcut.'
+                 Display='expand'
+                 Level='1'
+                 ConfigurableDirectory='APPLICATIONFOLDER'>
+            <ComponentRef Id='MainExeComponent' />
+        </Feature>
+
+        <UI>
+            <UIRef Id='WixUI_InstallDir' />
+        </UI>
+        <Property Id='WIXUI_INSTALLDIR' Value='APPLICATIONFOLDER' />
+
+    </Product>
+</Wix>
