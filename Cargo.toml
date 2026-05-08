@@ -14,7 +14,7 @@ categories = ["email", "gui"]
 mail-parser = "0.10"
 tao = "0.30"
 wry = "0.45"
-rfd = "0.14"
+rfd = "0.17"
 html-escape = "0.2"
 
 [target.'cfg(windows)'.dependencies]
