@@ -50,7 +50,7 @@ jobs:
         run: cargo wix --no-build --nocapture
 
       - name: Attach MSI to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: target/wix/inlook-*.msi
