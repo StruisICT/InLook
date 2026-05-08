@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "packages": {
+    ".": {
+      "package-name": "inlook"
+    }
+  },
+  "include-component-in-tag": false,
+  "pull-request-title-pattern": "chore: release ${version}"
+}

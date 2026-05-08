@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod render;
 #[cfg(windows)]
 mod registry;
+mod render;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -33,7 +33,7 @@ fn main() -> ExitCode {
             Err(e) => {
                 rfd::MessageDialog::new()
                     .set_title(APP_NAME)
-                    .set_description(&format!(
+                    .set_description(format!(
                         "Registration failed: {e}\n\nRun this command from an elevated (Administrator) terminal."
                     ))
                     .show();
@@ -55,7 +55,7 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         None => match rfd::FileDialog::new()
-            .set_title(&format!("{} — open .eml file", APP_NAME))
+            .set_title(format!("{} — open .eml file", APP_NAME))
             .add_filter("Email message", &["eml"])
             .pick_file()
         {
@@ -82,7 +82,7 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         Err(e) => {
             rfd::MessageDialog::new()
                 .set_title(APP_NAME)
-                .set_description(&format!("Cannot read {}:\n{e}", path.display()))
+                .set_description(format!("Cannot read {}:\n{e}", path.display()))
                 .show();
             return ExitCode::FAILURE;
         }
@@ -100,9 +100,7 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     let event_loop = EventLoop::new();
     let title = format!(
         "{} — {}",
-        path.file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("EML"),
+        path.file_name().and_then(|s| s.to_str()).unwrap_or("EML"),
         APP_NAME
     );
     let window = match WindowBuilder::new()
@@ -114,7 +112,7 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         Err(e) => {
             rfd::MessageDialog::new()
                 .set_title(APP_NAME)
-                .set_description(&format!("Failed to create window: {e}"))
+                .set_description(format!("Failed to create window: {e}"))
                 .show();
             return ExitCode::FAILURE;
         }
@@ -125,7 +123,7 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         Err(e) => {
             rfd::MessageDialog::new()
                 .set_title(APP_NAME)
-                .set_description(&format!(
+                .set_description(format!(
                     "Failed to create WebView2 surface: {e}\n\nMake sure the Microsoft Edge WebView2 Runtime is installed."
                 ))
                 .show();

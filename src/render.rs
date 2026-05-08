@@ -221,4 +221,3 @@ h1{{color:#c53030;font-size:18px}} .path{{color:#666;font-family:monospace;font-
         html_escape::encode_text(&path.display().to_string())
     )
 }
-
