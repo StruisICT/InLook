@@ -1,4 +1,5 @@
 /target/
+/dist/
 /_*.log
 *.swp
 *.bak

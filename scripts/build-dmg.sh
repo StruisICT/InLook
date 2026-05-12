@@ -30,10 +30,24 @@ install -m 755 "$DIST/inlook" "$APP/Contents/MacOS/inlook"
 # Info.plist with the version substituted in
 sed "s/__VERSION__/${VERSION}/g" "$ROOT/assets/Info.plist" > "$APP/Contents/Info.plist"
 
-# Optional icon
+# Icon: prefer a pre-built .icns, otherwise generate one from assets/inlook.png
+# using the macOS-native sips + iconutil (always present on macos-latest runners).
+ICNS_OUT="$APP/Contents/Resources/inlook.icns"
 if [[ -f "$ROOT/assets/inlook.icns" ]]; then
-    cp "$ROOT/assets/inlook.icns" "$APP/Contents/Resources/inlook.icns"
-    # Reference it from Info.plist
+    cp "$ROOT/assets/inlook.icns" "$ICNS_OUT"
+elif [[ -f "$ROOT/assets/inlook.png" ]]; then
+    ICONSET="$DIST/inlook.iconset"
+    rm -rf "$ICONSET"
+    mkdir -p "$ICONSET"
+    SRC="$ROOT/assets/inlook.png"
+    for size in 16 32 128 256 512; do
+        sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+        sips -z $((size * 2)) $((size * 2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+    done
+    sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
+    iconutil -c icns "$ICONSET" -o "$ICNS_OUT"
+fi
+if [[ -f "$ICNS_OUT" ]]; then
     /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string inlook.icns" \
         "$APP/Contents/Info.plist" 2>/dev/null || true
 fi
