@@ -34,3 +34,22 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# Configuration for `cargo deb` (Debian/Ubuntu package). Built in CI on
+# ubuntu-latest. The runtime dependency on libwebkit2gtk-4.1-0 is what wry
+# uses to render HTML email bodies on Linux.
+[package.metadata.deb]
+maintainer = "Struis ICT <info@struisict.com>"
+copyright = "2026, Struis ICT"
+license-file = ["LICENSE", "0"]
+extended-description = """\
+InLook is a small, fast viewer for .eml email files.
+Free Software from Struis ICT — https://struisict.com"""
+section = "mail"
+priority = "optional"
+assets = [
+    ["target/release/inlook", "usr/bin/", "755"],
+    ["assets/inlook.desktop", "usr/share/applications/", "644"],
+    ["LICENSE", "usr/share/doc/inlook/", "644"],
+]
+depends = "libwebkit2gtk-4.1-0, libgtk-3-0"

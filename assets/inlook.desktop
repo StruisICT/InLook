@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=InLook
+GenericName=EML Viewer
+Comment=Fast EML viewer — Free Software from Struis ICT
+Exec=inlook %f
+Icon=inlook
+Terminal=false
+Categories=Network;Email;Office;
+MimeType=message/rfc822;application/x-eml;
+StartupNotify=true
+Keywords=email;eml;mail;message;viewer;
