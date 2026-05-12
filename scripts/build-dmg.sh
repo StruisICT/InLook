@@ -30,27 +30,38 @@ install -m 755 "$DIST/inlook" "$APP/Contents/MacOS/inlook"
 # Info.plist with the version substituted in
 sed "s/__VERSION__/${VERSION}/g" "$ROOT/assets/Info.plist" > "$APP/Contents/Info.plist"
 
-# Icon: prefer a pre-built .icns, otherwise generate one from assets/inlook.png
-# using the macOS-native sips + iconutil (always present on macos-latest runners).
+# Icon: build a .icns from the committed hicolor PNGs. Falls back to sips
+# downsampling the 1024px master if a particular committed size is missing.
 ICNS_OUT="$APP/Contents/Resources/inlook.icns"
-if [[ -f "$ROOT/assets/inlook.icns" ]]; then
-    cp "$ROOT/assets/inlook.icns" "$ICNS_OUT"
-elif [[ -f "$ROOT/assets/inlook.png" ]]; then
-    ICONSET="$DIST/inlook.iconset"
-    rm -rf "$ICONSET"
-    mkdir -p "$ICONSET"
-    SRC="$ROOT/assets/inlook.png"
-    for size in 16 32 128 256 512; do
-        sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-        sips -z $((size * 2)) $((size * 2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-    done
-    sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
-    iconutil -c icns "$ICONSET" -o "$ICNS_OUT"
-fi
-if [[ -f "$ICNS_OUT" ]]; then
-    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string inlook.icns" \
-        "$APP/Contents/Info.plist" 2>/dev/null || true
-fi
+ICONSET="$DIST/inlook.iconset"
+MASTER="$ROOT/assets/inlook.png"
+rm -rf "$ICONSET"
+mkdir -p "$ICONSET"
+# (logical name, file size) — iconutil expects these canonical filenames.
+# Each line is "<logical-size> <icns-suffix>"; the icns spec wants 1x and 2x
+# variants from 16 up to 512.
+copy_or_resize() {
+    local pixels="$1" dest="$2"
+    local src="$ROOT/assets/icons/inlook-${pixels}.png"
+    if [[ -f "$src" ]]; then
+        cp "$src" "$dest"
+    else
+        sips -z "$pixels" "$pixels" "$MASTER" --out "$dest" >/dev/null
+    fi
+}
+copy_or_resize  16  "$ICONSET/icon_16x16.png"
+copy_or_resize  32  "$ICONSET/icon_16x16@2x.png"
+copy_or_resize  32  "$ICONSET/icon_32x32.png"
+copy_or_resize  64  "$ICONSET/icon_32x32@2x.png"
+copy_or_resize 128  "$ICONSET/icon_128x128.png"
+copy_or_resize 256  "$ICONSET/icon_128x128@2x.png"
+copy_or_resize 256  "$ICONSET/icon_256x256.png"
+copy_or_resize 512  "$ICONSET/icon_256x256@2x.png"
+copy_or_resize 512  "$ICONSET/icon_512x512.png"
+copy_or_resize 1024 "$ICONSET/icon_512x512@2x.png"
+iconutil -c icns "$ICONSET" -o "$ICNS_OUT"
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string inlook.icns" \
+    "$APP/Contents/Info.plist" 2>/dev/null || true
 
 # Build the DMG. UDZO = compressed read-only.
 hdiutil create -volname "InLook ${VERSION}" \

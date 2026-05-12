@@ -26,18 +26,15 @@ install -Dm755 "$ROOT/target/release/inlook" "$WORK/usr/bin/inlook"
 install -Dm644 "$ROOT/assets/inlook.desktop" "$WORK/usr/share/applications/inlook.desktop"
 cp "$ROOT/assets/inlook.desktop" "$WORK/inlook.desktop"
 
-# Icon — fall back to a generated 256x256 PNG so AppImage tools don't complain
-ICON_PNG="$WORK/usr/share/icons/hicolor/256x256/apps/inlook.png"
-if [[ -f "$ROOT/assets/inlook.png" ]]; then
-    cp "$ROOT/assets/inlook.png" "$ICON_PNG"
-else
-    # Minimal 256x256 PNG placeholder generated with ImageMagick (preinstalled
-    # on ubuntu-latest). Keeps the AppImage self-contained without a real icon.
-    convert -size 256x256 xc:'#2c5282' \
-        -gravity center -pointsize 96 -fill white -annotate 0 'IL' \
-        "$ICON_PNG"
-fi
-cp "$ICON_PNG" "$WORK/inlook.png"
+# Icons — copy committed hicolor PNGs into the AppDir. The AppDir root also
+# needs an inlook.png that appimagetool uses for the file's "tray" icon.
+for sz in 16 32 48 64 128 256 512; do
+    src="$ROOT/assets/icons/inlook-${sz}.png"
+    if [[ -f "$src" ]]; then
+        install -Dm644 "$src" "$WORK/usr/share/icons/hicolor/${sz}x${sz}/apps/inlook.png"
+    fi
+done
+install -Dm644 "$ROOT/assets/inlook.png" "$WORK/inlook.png"
 
 # AppRun launcher — the AppImage entrypoint that execs the binary
 cat > "$WORK/AppRun" <<'EOF'

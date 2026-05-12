@@ -31,8 +31,8 @@
 
         <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' />
 
-        <Icon Id='ProductIcon.exe' SourceFile='target\release\inlook.exe' />
-        <Property Id='ARPPRODUCTICON' Value='ProductIcon.exe' />
+        <Icon Id='ProductIcon.ico' SourceFile='assets\inlook.ico' />
+        <Property Id='ARPPRODUCTICON' Value='ProductIcon.ico' />
         <Property Id='ARPCONTACT' Value='Struis ICT' />
         <Property Id='ARPHELPLINK' Value='https://struis-ict.nl' />
         <Property Id='ARPCOMMENTS' Value='Free Software EML viewer from Struis ICT' />
@@ -55,7 +55,7 @@
                                       Name='InLook'
                                       Description='Open .eml email files'
                                       WorkingDirectory='APPLICATIONFOLDER'
-                                      Icon='ProductIcon.exe'
+                                      Icon='ProductIcon.ico'
                                       IconIndex='0'
                                       Advertise='yes' />
                         </File>
