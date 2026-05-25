@@ -11,7 +11,7 @@ keywords = ["eml", "email", "viewer", "windows", "mime"]
 categories = ["email", "gui"]
 
 [dependencies]
-mail-parser = "0.10"
+mail-parser = "0.11"
 tao = "0.30"
 wry = "0.45"
 rfd = "0.17"
