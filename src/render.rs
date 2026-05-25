@@ -74,12 +74,19 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';">
 <title>{subject_title} — InLook</title>
 <style>
 :root {{
   --bg: #f5f6f8; --fg: #1a1f2c; --muted: #6b7280; --accent: #2c5282;
-  --border: #e2e8f0; --card: #ffffff;
+  --border: #e2e8f0; --card: #ffffff; --card-soft: #f7fafc;
+}}
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --bg: #0f172a; --fg: #e2e8f0; --muted: #94a3b8; --accent: #60a5fa;
+    --border: #1e293b; --card: #1a202c; --card-soft: #161e2e;
+  }}
 }}
 * {{ box-sizing: border-box; }}
 html, body {{ height: 100%; }}
@@ -107,7 +114,7 @@ iframe.body {{ flex: 1; width: 100%; border: none; min-height: 320px; background
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px;
 }}
 .empty {{ padding: 32px; text-align: center; color: var(--muted); }}
-.atts {{ padding: 12px 24px 16px; background: #f7fafc; border-top: 1px solid var(--border); }}
+.atts {{ padding: 12px 24px 16px; background: var(--card-soft); border-top: 1px solid var(--border); }}
 .atts summary {{ cursor: pointer; font-weight: 600; color: var(--accent); }}
 .atts ul {{ margin: 8px 0 0; padding-left: 20px; list-style: none; }}
 .atts li {{ padding: 4px 0; }}
@@ -233,9 +240,11 @@ fn truncate_lossy(s: &str, max: usize) -> String {
 
 fn error_page(msg: &str, path: &Path) -> String {
     format!(
-        r#"<!doctype html><meta charset="utf-8"><title>Error</title>
-<style>body{{font:14px -apple-system,"Segoe UI",sans-serif;padding:32px;color:#1a1f2c;background:#f5f6f8}}
-h1{{color:#c53030;font-size:18px}} .path{{color:#666;font-family:monospace;font-size:12px}}</style>
+        r#"<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Error</title>
+<style>:root{{--bg:#f5f6f8;--fg:#1a1f2c;--err:#c53030;--muted:#666}}
+@media (prefers-color-scheme: dark){{:root{{--bg:#0f172a;--fg:#e2e8f0;--err:#fc8181;--muted:#94a3b8}}}}
+body{{font:14px -apple-system,"Segoe UI",sans-serif;padding:32px;color:var(--fg);background:var(--bg)}}
+h1{{color:var(--err);font-size:18px}} .path{{color:var(--muted);font-family:monospace;font-size:12px}}</style>
 <h1>Cannot display this email</h1>
 <p>{}</p>
 <p class="path">{}</p>"#,
@@ -319,5 +328,13 @@ mod tests {
     #[test]
     fn malformed_input_does_not_panic() {
         let _ = render_eml_to_html(b"\x00\xff\xfe garbage", &PathBuf::from("x.eml"));
+    }
+
+    #[test]
+    fn supports_system_dark_mode() {
+        let eml = b"From: a@x\r\nSubject: t\r\n\r\nbody\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        assert!(html.contains(r#"name="color-scheme""#));
+        assert!(html.contains("prefers-color-scheme: dark"));
     }
 }
