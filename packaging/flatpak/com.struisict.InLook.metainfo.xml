@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.struisict.InLook</id>
+
+  <name>InLook</name>
+  <summary>Fast, free .eml email viewer</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+
+  <description>
+    <p>
+      InLook is a small, fast viewer for .eml email files (the standard
+      RFC 822 / MIME format used by Outlook, Thunderbird, and most other
+      mail clients when saving a single message to disk).
+    </p>
+    <p>
+      Open an .eml file to see the headers (From, To, Cc, Subject, Date),
+      the body, and any attachments. HTML email bodies are rendered inside
+      a sandboxed WebView with a strict Content Security Policy: no remote
+      images, no remote stylesheets, no scripts, no tracking pixels — only
+      what is embedded in the message itself.
+    </p>
+    <p>
+      InLook does not connect to the network, does not modify the files
+      you open, and stores no preferences. It is Free Software released
+      under the MIT or Apache 2.0 licenses, whichever you prefer.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Renders both HTML and plain-text email bodies</li>
+      <li>Strict CSP + sandbox isolation for embedded HTML</li>
+      <li>Attachments listing with sizes</li>
+      <li>Follows system light/dark theme</li>
+      <li>Refuses files over 50 MiB as a DoS safeguard</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.struisict.InLook.desktop</launchable>
+
+  <url type="homepage">https://github.com/Struis112/InLook</url>
+  <url type="bugtracker">https://github.com/Struis112/InLook/issues</url>
+  <url type="vcs-browser">https://github.com/Struis112/InLook</url>
+
+  <developer id="com.struisict">
+    <name>Struis ICT</name>
+  </developer>
+
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>eml</keyword>
+    <keyword>email</keyword>
+    <keyword>message</keyword>
+    <keyword>viewer</keyword>
+    <keyword>mail</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.4.0" date="2026-05-12">
+      <description>
+        <p>Bundles an app icon and follows the system dark/light theme.</p>
+      </description>
+    </release>
+    <release version="0.3.1" date="2026-05-12">
+      <description>
+        <p>AppImage builds on runners without FUSE.</p>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-05-12">
+      <description>
+        <p>First multi-platform release: Windows MSI, Linux .deb and AppImage, macOS .dmg.</p>
+      </description>
+    </release>
+  </releases>
+</component>
