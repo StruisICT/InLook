@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/Struis112/InLook/compare/v0.4.0...v0.5.0) (2026-05-25)
+
+
+### Features
+
+* follow system dark/light theme ([#21](https://github.com/Struis112/InLook/issues/21)) ([5681b38](https://github.com/Struis112/InLook/commit/5681b384ca6102250fb4618c456bf3dfc906fa6e))
+* **packaging:** add Flathub submission files ([#25](https://github.com/Struis112/InLook/issues/25)) ([31c2ea3](https://github.com/Struis112/InLook/commit/31c2ea39dff227702a7cad21438d93eae983eab6))
+* **packaging:** add Homebrew cask source-of-truth ([#24](https://github.com/Struis112/InLook/issues/24)) ([f0a17f9](https://github.com/Struis112/InLook/commit/f0a17f9d02b26994a72db62d4078341dfeabd501))
+
+
+### Bug Fixes
+
+* **wix:** use $(var.Version) and update help URL ([#23](https://github.com/Struis112/InLook/issues/23)) ([90b1024](https://github.com/Struis112/InLook/commit/90b1024e01abb3232d8de2f7e3242032f45a810f))
+
 ## [0.4.0](https://github.com/Struis112/InLook/compare/v0.3.1...v0.4.0) (2026-05-12)
 
 
