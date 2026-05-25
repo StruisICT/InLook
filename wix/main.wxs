@@ -13,11 +13,11 @@
              Manufacturer='Struis ICT'
              Language='1033'
              Codepage='1252'
-             Version='0.1.0'>
+             Version='$(var.Version)'>
 
         <Package Id='*'
                  Keywords='InLook,EML viewer,email,Struis ICT'
-                 Description='InLook 0.1.0 — fast EML viewer'
+                 Description='InLook $(var.Version) — fast EML viewer'
                  Manufacturer='Struis ICT'
                  InstallerVersion='450'
                  Languages='1033'
@@ -34,7 +34,7 @@
         <Icon Id='ProductIcon.exe' SourceFile='target\release\inlook.exe' />
         <Property Id='ARPPRODUCTICON' Value='ProductIcon.exe' />
         <Property Id='ARPCONTACT' Value='Struis ICT' />
-        <Property Id='ARPHELPLINK' Value='https://struis-ict.nl' />
+        <Property Id='ARPHELPLINK' Value='https://struisict.com' />
         <Property Id='ARPCOMMENTS' Value='Free Software EML viewer from Struis ICT' />
         <Property Id='ARPNOREPAIR' Value='1' />
 
