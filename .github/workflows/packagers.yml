@@ -80,9 +80,9 @@ jobs:
           git commit -m "homebrew: bump cask to ${{ steps.bump.outputs.version }}"
           git push
 
-      - name: Mirror cask to Struis112/homebrew-tap
+      - name: Mirror cask to StruisICT/homebrew-tap
         run: |
-          git clone --depth=1 "https://x-access-token:${{ secrets.PACKAGERS_TOKEN }}@github.com/Struis112/homebrew-tap.git" /tmp/tap
+          git clone --depth=1 "https://x-access-token:${{ secrets.PACKAGERS_TOKEN }}@github.com/StruisICT/homebrew-tap.git" /tmp/tap
           cp packaging/homebrew/inlook.rb /tmp/tap/Casks/inlook.rb
           cd /tmp/tap
           if git diff --quiet Casks/inlook.rb; then

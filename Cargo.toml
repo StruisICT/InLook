@@ -6,7 +6,7 @@ rust-version = "1.74"
 description = "InLook — fast EML viewer. Free Software from Struis ICT."
 authors = ["Struis ICT"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Struis112/InLook"
+repository = "https://github.com/StruisICT/InLook"
 keywords = ["eml", "email", "viewer", "windows", "mime"]
 categories = ["email", "gui"]
 

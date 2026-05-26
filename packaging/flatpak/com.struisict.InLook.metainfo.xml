@@ -38,9 +38,9 @@
 
   <launchable type="desktop-id">com.struisict.InLook.desktop</launchable>
 
-  <url type="homepage">https://github.com/Struis112/InLook</url>
-  <url type="bugtracker">https://github.com/Struis112/InLook/issues</url>
-  <url type="vcs-browser">https://github.com/Struis112/InLook</url>
+  <url type="homepage">https://github.com/StruisICT/InLook</url>
+  <url type="bugtracker">https://github.com/StruisICT/InLook/issues</url>
+  <url type="vcs-browser">https://github.com/StruisICT/InLook</url>
 
   <developer id="com.struisict">
     <name>Struis ICT</name>
