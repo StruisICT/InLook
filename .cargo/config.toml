@@ -1,0 +1,17 @@
+# Statically link the MSVC C/C++ runtime (VCRUNTIME140.dll, VCRUNTIME140_1.dll)
+# into the binary so InLook launches on a clean Windows install that does not
+# have the Visual C++ Redistributable.
+#
+# Why: the released v0.5.0 EXE dynamically imported VCRUNTIME140.dll and
+# VCRUNTIME140_1.dll. On the winget validation sandbox (a clean Windows image
+# without the VC++ runtime) the process failed to start with
+# STATUS_DLL_NOT_FOUND (0xC0000135) — see microsoft/winget-pkgs PR #379422.
+# WebView2Loader.dll is loaded at runtime (not a load-time import), so it was a
+# red herring; the only missing load-time dependency was the VC++ runtime.
+#
+# `+crt-static` embeds that runtime, making the EXE self-contained (it still
+# uses the Universal CRT forwarders api-ms-win-crt-*.dll, which are part of
+# Windows 10+). This removes the need for any VCRedist/WebView2 dependency
+# declaration in the winget manifest.
+[target.'cfg(target_env = "msvc")']
+rustflags = ["-C", "target-feature=+crt-static"]
