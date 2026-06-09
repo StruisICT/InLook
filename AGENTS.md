@@ -68,7 +68,8 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
 
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `ci:`, `docs:`,
   …, with optional scope like `feat(packaging):`). This drives release-please
-  versioning and the changelog — so commit messages matter.
+  versioning and the changelog — so commit messages matter. See
+  [§5.1 Versioning (SemVer)](#51-versioning-semver) for the commit→version map.
 - **Branches:** topic branches like `feat/...`, `fix/...`, `chore/...`; PR into
   `main`. `main` is the release line.
 - **Style:** rustfmt defaults; clippy must be clean with `-D warnings`.
@@ -79,6 +80,48 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
   features. Suggest improvements, but keep the safe-by-default posture.
 
 ## 5. Releasing (automated)
+
+### 5.1 Versioning (SemVer)
+
+InLook versions follow **[Semantic Versioning 2.0.0](https://semver.org/)**:
+`MAJOR.MINOR.PATCH`. Because InLook is an *application*, its "public API" — the
+contract we promise not to break without a MAJOR bump — is its **user-facing
+behaviour**:
+
+- the **CLI surface**: subcommands and flags (`<file.eml>`, no-arg picker,
+  `register`, `unregister`, `--version`/`-V`, `--help`/`-h`) and their exit codes;
+- the **file association** identifiers Windows + uninstallers rely on: ProgID
+  `StruisICT.InLook`, the `.eml`→ProgID mapping, and the WiX MSI `UpgradeCode`
+  (which **must never change** — see §6);
+- the **package identifiers** downstream channels depend on (e.g. winget
+  `StruisICT.InLook`, Flatpak `com.struisict.InLook`).
+
+**Bump rules:**
+
+| Change | Bump | Conventional Commit |
+|---|---|---|
+| Backwards-**incompatible** change to the contract above (rename/remove a flag, change an exit code, change the ProgID/UpgradeCode/package id, drop a supported input) | **MAJOR** | `feat!:` / `fix!:` or a `BREAKING CHANGE:` footer |
+| Backwards-**compatible** new capability (new flag, attachment saving, new platform/package) | **MINOR** | `feat:` |
+| Backwards-compatible bug fix or internal change with no behaviour change (render fixes, dependency bumps) | **PATCH** | `fix:` |
+| No release on its own | — | `chore:`, `docs:`, `ci:`, `refactor:`, `test:`, `build:`, `style:` |
+
+**Pre-1.0 clause (we are here, at 0.x).** Per SemVer §4, `0.y.z` is *initial
+development* — the contract may still change. release-please is configured with
+`bump-minor-pre-major: true`, so while in 0.x a **breaking change bumps the
+MINOR** (e.g. `0.5.0 → 0.6.0`) instead of jumping to `1.0.0`. Features stay
+MINOR, fixes stay PATCH. **Cut `1.0.0` deliberately** — only once the CLI and
+file-association contract above is considered stable.
+
+**Pre-releases** use SemVer identifiers and have *lower* precedence than the
+finished version: `1.0.0-alpha.1` < `1.0.0-beta.1` < `1.0.0-rc.1` < `1.0.0`.
+Do **not** use SemVer build metadata (`+...`); release-please/Cargo tags are
+plain `vMAJOR.MINOR.PATCH`.
+
+**Version source of truth:** `.release-please-manifest.json` and the `version`
+field in `Cargo.toml` (both bumped by the release PR). Git tags are `vX.Y.Z`.
+Never hand-edit either — let release-please do it.
+
+### 5.2 Release flow
 
 Release is driven by **release-please** + GitHub Actions — do **not** hand-edit
 versions or `CHANGELOG.md`.
@@ -96,17 +139,20 @@ versions or `CHANGELOG.md`.
 5. `.github/workflows/packagers.yml` updates downstream package manifests on
    release.
 
-Version source of truth: `.release-please-manifest.json` and `Cargo.toml`
-(both bumped by the release PR).
+(Version source of truth is covered in §5.1 above.)
 
 ## 6. Packaging files (source of truth lives in this repo)
 
 | Path | What |
 |---|---|
-| `wix/main.wxs` | Windows MSI manifest. **`UpgradeCode` must never change** (keeps upgrades in-place). Version comes from `$(var.Version)`. |
-| `Cargo.toml` `[package.metadata.deb]` | Debian `.deb` config. |
-| `scripts/build-appimage.sh`, `scripts/build-dmg.sh` | Linux AppImage / macOS dmg builders. |
-| `assets/` | `inlook.png` icon, `inlook.desktop` (Linux), `Info.plist` (macOS). |
+| `.cargo/config.toml` | Pins `+crt-static` (MSVC) so the EXE statically links the VC++ runtime and launches on a clean Windows install. **Keep it** — removing it reintroduces the `0xC0000135` crash. |
+| `build.rs` + `winresource` build-dep | Windows-only: embeds `assets/inlook.ico` + version metadata (ProductName/Company/FileVersion) into `inlook.exe`. |
+| `wix/main.wxs` | Windows MSI manifest. **`UpgradeCode` must never change** (keeps upgrades in-place). Version comes from `$(var.Version)`. Icon comes from `assets/inlook.ico` (never the EXE). |
+| `scripts/sign-windows.ps1` | Authenticode-signs the EXE + MSI in the release job. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set. Required to pass winget's security gate. |
+| `Cargo.toml` `[package.metadata.deb]` | Debian `.deb` config (incl. hicolor icon assets). |
+| `scripts/build-appimage.sh`, `scripts/build-dmg.sh`, `scripts/generate-icons.py` | Linux AppImage / macOS dmg builders; icon-set generator. |
+| `assets/` | `inlook.ico` (Windows), `inlook.png` + `icons/inlook-*.png` (Linux hicolor), `inlook.desktop`, `Info.plist` (macOS). |
+| `packaging/winget/` | winget submission notes + validated reference manifest (`StruisICT.InLook`). See its `README.md` and the PR #379422 post-mortem. |
 | `packaging/flatpak/` | Flathub submission (`com.struisict.InLook.*`). See its own `README.md`; regenerate `generated-sources.json` whenever `Cargo.lock` changes. |
 | `packaging/homebrew/inlook.rb` | Homebrew cask source of truth. |
 

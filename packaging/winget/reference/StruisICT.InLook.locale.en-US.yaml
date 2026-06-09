@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+
+PackageIdentifier: StruisICT.InLook
+PackageVersion: 0.5.0
+PackageLocale: en-US
+Publisher: Struis ICT
+PublisherUrl: https://struisict.com
+PublisherSupportUrl: https://github.com/StruisICT/InLook/issues
+Author: Struis ICT
+PackageName: InLook
+PackageUrl: https://github.com/StruisICT/InLook
+License: MIT OR Apache-2.0
+LicenseUrl: https://github.com/StruisICT/InLook/blob/main/LICENSE
+Copyright: © Struis ICT
+ShortDescription: Fast, safe .eml email viewer. Free Software from Struis ICT.
+Description: |-
+  InLook is a small, fast viewer for .eml email files. It renders the message
+  headers, body, and attachment list in a native window with no network access
+  and no remote image loading. HTML bodies are shown in a sandboxed frame under
+  a strict Content-Security-Policy, so tracking pixels and scripts never run.
+  Free Software from Struis ICT.
+Moniker: inlook
+ReleaseNotesUrl: https://github.com/StruisICT/InLook/releases/tag/v0.5.0
+Tags:
+- eml
+- email
+- viewer
+- mime
+- rfc822
+- mail
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0
