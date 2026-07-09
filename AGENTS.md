@@ -22,9 +22,12 @@ client: no accounts, no network, no sending.
 
 | File | Responsibility |
 |---|---|
-| `src/main.rs` | Entry point. CLI arg parsing (`--version`, `--help`, `register`, `unregister`, `<file>`, or no-arg file picker). Reads the file (size-capped), builds the `tao` window + `wry` WebView, runs the event loop. Windows console-attach shim for CLI output. |
+| `src/lib.rs` | Library crate root. Exposes the pure, GUI-free core (`pub mod render`) so it can be unit-, snapshot- and fuzz-tested without a window. Keep it free of I/O and platform glue. |
+| `src/main.rs` | Binary (thin shell over the lib). CLI arg parsing (`--version`, `--help`, `register`, `unregister`, `<file>`, or no-arg file picker). Reads the file (size-capped), builds the `tao` window + `wry` WebView, runs the event loop. Windows console-attach shim for CLI output. |
 | `src/render.rs` | Pure function `render_eml_to_html(bytes, path) -> String`. Parses with `mail-parser`, formats headers (escaped), renders the body, lists attachments, and emits one self-contained HTML page. **All the security lives here.** Has the unit tests. |
-| `src/registry.rs` | Windows-only. `register()`/`unregister()` write the `.eml` file association into `HKLM\Software\Classes` (ProgID `StruisICT.InLook`) and notify the shell. Requires elevation. |
+| `src/registry.rs` | Windows-only, binary-only. `register()`/`unregister()` write the `.eml` file association into `HKLM\Software\Classes` (ProgID `StruisICT.InLook`) and notify the shell. Requires elevation. |
+| `tests/snapshots.rs` | Golden-file snapshot tests: renders every `tests/fixtures/*.eml` and compares against `tests/snapshots/*.html`. Regenerate with `INLOOK_UPDATE_SNAPSHOTS=1 cargo test --test snapshots`, then review the diff. |
+| `fuzz/` | cargo-fuzz target `render_eml` (detached workspace, nightly-only). CI smoke-fuzzes it via `.github/workflows/fuzz.yml` (render-path PRs, weekly, manual). |
 
 **Data flow:** `file path → read_eml() (≤50 MiB) → render_eml_to_html() → wry WebView`.
 
@@ -48,7 +51,9 @@ client: no accounts, no network, no sending.
 ```sh
 cargo build --release                 # build the binary
 cargo run --release -- test/sample.eml  # run against the sample email
-cargo test --release                  # unit tests (render.rs)
+cargo test --release                  # unit tests (render.rs) + snapshot tests (tests/)
+INLOOK_UPDATE_SNAPSHOTS=1 cargo test --test snapshots  # regenerate golden snapshots
+cargo +nightly fuzz run render_eml -- -max_total_time=60  # fuzz (Linux/macOS, needs cargo-fuzz)
 cargo fmt --all                       # format
 cargo fmt --all -- --check            # CI format gate
 cargo clippy --all-targets --release -- -D warnings  # CI lint gate (warnings = errors)
@@ -74,8 +79,10 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
   `main`. `main` is the release line.
 - **Style:** rustfmt defaults; clippy must be clean with `-D warnings`.
 - **Tests:** unit tests live next to the code (`#[cfg(test)] mod tests` in
-  `render.rs`). Any new body/header/attachment handling should add a test,
-  especially escaping/sandboxing assertions.
+  `render.rs`); rendered-output changes are covered by the golden snapshots in
+  `tests/`. Any new body/header/attachment handling should add a test,
+  especially escaping/sandboxing assertions, and new render behaviour should
+  add a fixture (`tests/fixtures/*.eml`) + regenerated snapshot.
 - **No scope creep:** InLook is a viewer. Don't add network, sending, or account
   features. Suggest improvements, but keep the safe-by-default posture.
 
@@ -170,10 +177,11 @@ smoke test.
 ## 8. Current state (update this section as work lands)
 
 - **Version:** 0.5.0.
-- **Working branches of note:** `feat/struisict-org-urls` (org URL rebrand,
-  unmerged at last check). Several dependabot branches open, including
-  `mail-parser 0.11.3` and `tao 0.35.3` (the `tao` jump is multi-major — review
-  the window/event-loop API before merging).
+- **Working branches of note:** `feat/struisict-org-urls` (org URL rebrand, PR
+  #30, unmerged) and `test/render-fuzz-and-snapshots` (lib/bin split + golden
+  snapshot tests + cargo-fuzz target, stacked on #30). Several dependabot
+  branches open, including `mail-parser 0.11.4` and `tao 0.35.3` (the `tao`
+  jump is multi-major — review the window/event-loop API before merging).
 - **Repo recently transferred** from `Struis112/InLook` to the `StruisICT` org;
   URLs are being updated to match.
 
