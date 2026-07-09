@@ -6,7 +6,7 @@ rust-version = "1.74"
 description = "InLook — fast EML viewer. Free Software from Struis ICT."
 authors = ["Struis ICT"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Struis112/InLook"
+repository = "https://github.com/StruisICT/InLook"
 keywords = ["eml", "email", "viewer", "windows", "mime"]
 categories = ["email", "gui"]
 
@@ -27,6 +27,10 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+# Embeds the app icon + version metadata into inlook.exe at build time (build.rs).
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
 
 [profile.release]
 opt-level = "z"
@@ -51,5 +55,12 @@ assets = [
     ["target/release/inlook", "usr/bin/", "755"],
     ["assets/inlook.desktop", "usr/share/applications/", "644"],
     ["LICENSE", "usr/share/doc/inlook/", "644"],
+    ["assets/icons/inlook-16.png",   "usr/share/icons/hicolor/16x16/apps/inlook.png",   "644"],
+    ["assets/icons/inlook-32.png",   "usr/share/icons/hicolor/32x32/apps/inlook.png",   "644"],
+    ["assets/icons/inlook-48.png",   "usr/share/icons/hicolor/48x48/apps/inlook.png",   "644"],
+    ["assets/icons/inlook-64.png",   "usr/share/icons/hicolor/64x64/apps/inlook.png",   "644"],
+    ["assets/icons/inlook-128.png",  "usr/share/icons/hicolor/128x128/apps/inlook.png", "644"],
+    ["assets/icons/inlook-256.png",  "usr/share/icons/hicolor/256x256/apps/inlook.png", "644"],
+    ["assets/icons/inlook-512.png",  "usr/share/icons/hicolor/512x512/apps/inlook.png", "644"],
 ]
 depends = "libwebkit2gtk-4.1-0, libgtk-3-0"

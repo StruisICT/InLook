@@ -7,5 +7,7 @@
     }
   },
   "include-component-in-tag": false,
-  "pull-request-title-pattern": "chore: release ${version}"
+  "pull-request-title-pattern": "chore: release ${version}",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false
 }

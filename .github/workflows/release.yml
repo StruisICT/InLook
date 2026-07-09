@@ -46,8 +46,23 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
+      # Sign the EXE before packaging so the MSI ships the signed binary.
+      - name: Sign inlook.exe
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: ./scripts/sign-windows.ps1 -Path target/release/inlook.exe
+
       - name: Build MSI
         run: cargo wix --no-build --nocapture
+
+      - name: Sign MSI
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: ./scripts/sign-windows.ps1 -Path (Get-ChildItem target/wix/inlook-*.msi).FullName
 
       - name: Attach Windows artifacts to GitHub Release
         uses: softprops/action-gh-release@v3
