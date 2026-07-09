@@ -55,7 +55,11 @@ jobs:
           cp tests/fixtures/*.eml test/*.eml fuzz/corpus/render_eml/
 
       - name: Fuzz for 2 minutes
-        run: cargo +nightly fuzz run render_eml -- -max_total_time=120
+        # Explicit --target: the prebuilt cargo-fuzz binary is musl-linked and
+        # would otherwise default to x86_64-unknown-linux-musl, where static
+        # libc conflicts with ASan ("sanitizer is incompatible with statically
+        # linked libc").
+        run: cargo +nightly fuzz run render_eml --target x86_64-unknown-linux-gnu -- -max_total_time=120
 
       - name: Upload crash artifacts
         if: failure()

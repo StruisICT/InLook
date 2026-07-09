@@ -1,0 +1,13 @@
+# cargo-audit configuration (used by the Security audit CI job).
+
+[advisories]
+# quick-xml < 0.41 DoS advisories (quadratic attribute check / unbounded
+# namespace allocations). Our only quick-xml consumer is wayland-scanner, a
+# BUILD-TIME code generator in the Linux GTK/Wayland stack that parses trusted,
+# vendored Wayland protocol XML — never attacker-controlled input, and never at
+# runtime. No semver-compatible fixed version exists yet.
+# Remove these once wayland-scanner depends on quick-xml >= 0.41.
+ignore = [
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]
