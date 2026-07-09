@@ -4,8 +4,8 @@
 
 #[cfg(windows)]
 mod registry;
-mod render;
 
+use inlook::render;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
