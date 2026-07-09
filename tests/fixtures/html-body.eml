@@ -1,0 +1,7 @@
+From: Newsletter <news@example.com>
+To: bob@example.com
+Subject: HTML newsletter
+Date: Sat, 10 May 2026 08:30:00 +0000
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1 style="color:red">Big Sale</h1><script>alert(1)</script><img src="https://tracker.example.com/pixel.gif"><p>Click <a href="https://example.com">here</a>!</p></body></html>

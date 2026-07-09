@@ -1,0 +1,5 @@
+# Test fixtures and golden snapshots are byte-exact — never rewrite their
+# line endings on checkout/commit, on any OS.
+tests/fixtures/** -text
+tests/snapshots/** -text
+test/*.eml -text

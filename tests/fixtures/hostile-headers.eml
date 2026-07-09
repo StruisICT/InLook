@@ -1,0 +1,7 @@
+From: "<img src=x onerror=alert(1)>" <evil@example.com>
+To: "Bob \"quoted\"" <bob@example.com>
+Subject: <script>document.title</script> =?utf-8?B?4pig77iP?= naïve résumé
+Date: Sun, 11 May 2026 23:59:59 -0700
+Content-Type: text/plain; charset=utf-8
+
+body with <tags> & "quotes" and unicode: cafeé ☃
