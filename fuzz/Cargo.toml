@@ -1,0 +1,25 @@
+[package]
+name = "inlook-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.inlook]
+path = ".."
+
+[[bin]]
+name = "render_eml"
+path = "fuzz_targets/render_eml.rs"
+test = false
+doc = false
+bench = false
+
+# Detached from the parent crate on purpose: the fuzz crate needs nightly +
+# libFuzzer and must not affect the main build, MSRV, or `cargo test`.
+[workspace]

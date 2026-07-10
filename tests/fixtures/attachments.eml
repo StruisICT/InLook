@@ -1,0 +1,24 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Files attached
+Date: Mon, 12 May 2026 12:00:00 +0100
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUNDARY42"
+
+--BOUNDARY42
+Content-Type: text/plain; charset=utf-8
+
+Two files attached.
+--BOUNDARY42
+Content-Type: application/pdf; name="report.pdf"
+Content-Disposition: attachment; filename="report.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJcO0wr7Ck8KOCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCg==
+--BOUNDARY42
+Content-Type: application/octet-stream; name="<img src=x>.bin"
+Content-Disposition: attachment; filename="<img src=x>.bin"
+Content-Transfer-Encoding: base64
+
+AAECAwQFBgcICQ==
+--BOUNDARY42--

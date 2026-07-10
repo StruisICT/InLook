@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';">
+<title>No body here — InLook</title>
+<style>
+:root {
+  --bg: #f5f6f8; --fg: #1a1f2c; --muted: #6b7280; --accent: #2c5282;
+  --border: #e2e8f0; --card: #ffffff; --card-soft: #f7fafc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a; --fg: #e2e8f0; --muted: #94a3b8; --accent: #60a5fa;
+    --border: #1e293b; --card: #1a202c; --card-soft: #161e2e;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg); color: var(--fg); margin: 0;
+  display: flex; flex-direction: column;
+}
+header { padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border); }
+.brand {
+  font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
+  text-transform: uppercase; margin-bottom: 8px; font-weight: 600;
+}
+h1 { margin: 0 0 14px; font-size: 19px; color: var(--accent); font-weight: 600; }
+table.headers { border-collapse: collapse; width: 100%; }
+table.headers th {
+  text-align: left; vertical-align: top; padding: 3px 14px 3px 0;
+  color: var(--muted); font-weight: 500; width: 70px; font-size: 13px;
+}
+table.headers td { padding: 3px 0; word-break: break-word; font-size: 13px; }
+section.body-wrap { flex: 1; background: var(--card); display: flex; flex-direction: column; }
+iframe.body { flex: 1; width: 100%; border: none; min-height: 320px; background: #fff; }
+.body-text {
+  flex: 1; padding: 24px; margin: 0; white-space: pre-wrap;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px;
+}
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+.atts { padding: 12px 24px 16px; background: var(--card-soft); border-top: 1px solid var(--border); }
+.atts summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.atts ul { margin: 8px 0 0; padding-left: 20px; list-style: none; }
+.atts li { padding: 4px 0; }
+.atts .size { color: var(--muted); font-size: 12px; margin-left: 8px; }
+footer {
+  padding: 8px 24px; font-size: 11px; color: var(--muted);
+  background: var(--card); border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Struis ICT — Free Software</div>
+  <h1>No body here</h1>
+  <table class="headers">
+    <tr><th>From</th><td>minimal@example.com</td></tr>
+    <tr><th>To</th><td></td></tr>
+    
+    <tr><th>Date</th><td>Wed, 13 May 2026 00:00:00 +0000</td></tr>
+  </table>
+</header>
+<section class="body-wrap"><iframe class="body" sandbox="" srcdoc="&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src 'none'; img-src data:; style-src 'unsafe-inline' data:; font-src data:; media-src data:;&quot;&gt;
+&lt;style&gt;body{margin:0;padding:16px 24px;font:14px/1.5 -apple-system,&quot;Segoe UI&quot;,system-ui,sans-serif;color:#1a1f2c;} img{max-width:100%;height:auto}&lt;/style&gt;
+&lt;html&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
+
+<footer>
+  <span class="path" title="no-body.eml">no-body.eml</span>
+  <span>InLook · Free Software · Struis ICT</span>
+</footer>
+</body>
+</html>
