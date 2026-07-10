@@ -88,7 +88,7 @@ jobs:
           git push -u origin "$BRANCH"
           gh pr create --fill --title "chore(homebrew): bump cask to ${{ steps.bump.outputs.version }}" \
             --body "Automated by packagers.yml on release."
-          gh pr merge --squash --auto "$BRANCH"
+          gh pr merge --squash --auto --delete-branch "$BRANCH"
 
       - name: Mirror cask to StruisICT/homebrew-tap
         run: |
@@ -162,4 +162,4 @@ jobs:
           git push -u origin "$BRANCH"
           gh pr create --fill --title "chore(flatpak): bump to ${TAG#v}" \
             --body "Automated by packagers.yml on release."
-          gh pr merge --squash --auto "$BRANCH"
+          gh pr merge --squash --auto --delete-branch "$BRANCH"
