@@ -155,7 +155,8 @@ versions or `CHANGELOG.md`.
 | `.cargo/config.toml` | Pins `+crt-static` (MSVC) so the EXE statically links the VC++ runtime and launches on a clean Windows install. **Keep it** — removing it reintroduces the `0xC0000135` crash. |
 | `build.rs` + `winresource` build-dep | Windows-only: embeds `assets/inlook.ico` + version metadata (ProductName/Company/FileVersion) into `inlook.exe`. |
 | `wix/main.wxs` | Windows MSI manifest. **`UpgradeCode` must never change** (keeps upgrades in-place). Version comes from `$(var.Version)`. Icon comes from `assets/inlook.ico` (never the EXE). |
-| `scripts/sign-windows.ps1` | Authenticode-signs the EXE + MSI in the release job. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set. Required to pass winget's security gate. |
+| `packaging/signpath/README.md` | **SignPath Foundation code signing** (the active signing route): free OSS Authenticode cert, wired into `release.yml` behind the `SIGNPATH_ORGANIZATION_ID` var + `SIGNPATH_API_TOKEN` secret; every release needs a manual approval in the SignPath portal. The README's "Code signing policy" section is a Foundation requirement — keep it accurate. |
+| `scripts/sign-windows.ps1` | Legacy PFX signing fallback. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set (newly issued certs no longer come as PFX — SignPath above is the real route). |
 | `Cargo.toml` `[package.metadata.deb]` | Debian `.deb` config (incl. hicolor icon assets). |
 | `scripts/build-appimage.sh`, `scripts/build-dmg.sh`, `scripts/generate-icons.py` | Linux AppImage / macOS dmg builders; icon-set generator. |
 | `assets/` | `inlook.ico` (Windows), `inlook.png` + `icons/inlook-*.png` (Linux hicolor), `inlook.desktop`, `Info.plist` (macOS). |

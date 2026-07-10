@@ -64,6 +64,65 @@ jobs:
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: ./scripts/sign-windows.ps1 -Path (Get-ChildItem target/wix/inlook-*.msi).FullName
 
+      # --- SignPath Foundation code signing (see packaging/signpath/README.md) ---
+      # Active only when the SIGNPATH_ORGANIZATION_ID variable and
+      # SIGNPATH_API_TOKEN secret are configured; otherwise the release ships
+      # exactly as before. Each request needs manual approval in the SignPath
+      # portal (Foundation requirement), so approve promptly or re-run this job.
+      - name: Detect SignPath configuration
+        id: signpath
+        shell: bash
+        env:
+          SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORG: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+        run: |
+          if [ -n "$SIGNPATH_TOKEN" ] && [ -n "$SIGNPATH_ORG" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SignPath not configured — shipping unsigned."
+          fi
+
+      - name: Stage unsigned artifacts for SignPath
+        id: stage
+        if: steps.signpath.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          mkdir -p unsigned
+          cp target/release/inlook.exe unsigned/inlook.exe
+          MSI=$(ls target/wix/inlook-*.msi)
+          # Stable name so the SignPath artifact configuration never changes.
+          cp "$MSI" unsigned/inlook.msi
+          echo "msi_name=$(basename "$MSI")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload unsigned artifact
+        id: unsigned
+        if: steps.signpath.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned
+          path: unsigned/
+
+      - name: Submit SignPath signing request
+        if: steps.signpath.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: inlook
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Replace artifacts with signed versions
+        if: steps.signpath.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          cp signed/inlook.exe target/release/inlook.exe
+          cp signed/inlook.msi "target/wix/${{ steps.stage.outputs.msi_name }}"
+
       - name: Attach Windows artifacts to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
