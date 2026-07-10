@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/StruisICT/InLook/compare/v0.5.0...v0.6.0) (2026-07-10)
+
+
+### Features
+
+* **ci:** auto-update package manifests on release + flatpak build check ([#27](https://github.com/StruisICT/InLook/issues/27)) ([f901828](https://github.com/StruisICT/InLook/commit/f90182890309e1e4c831039d503f8fe2606c8626))
+* rebrand to StruisICT org — static CRT, embedded icon metadata, signed releases ([#30](https://github.com/StruisICT/InLook/issues/30)) ([6f41517](https://github.com/StruisICT/InLook/commit/6f415177f9815808428fa96dfb822da230fef8d1))
+* **windows:** embed app icon + version metadata and source the MSI icon from .ico ([6f41517](https://github.com/StruisICT/InLook/commit/6f415177f9815808428fa96dfb822da230fef8d1))
+
+
+### Bug Fixes
+
+* **flatpak:** pin manifest to v0.5.0 ([#29](https://github.com/StruisICT/InLook/issues/29)) ([50a8ab4](https://github.com/StruisICT/InLook/commit/50a8ab4dc512881ab5e6a77767fbc95d01a85e25))
+* statically link the MSVC runtime so InLook starts without VCRedist ([6f41517](https://github.com/StruisICT/InLook/commit/6f415177f9815808428fa96dfb822da230fef8d1))
+
 ## [0.5.0](https://github.com/Struis112/InLook/compare/v0.4.0...v0.5.0) (2026-05-25)
 
 
