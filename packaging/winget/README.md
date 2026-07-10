@@ -34,10 +34,13 @@ time on these again:
 | `[FAIL] Installer failed security check ... Trojan:Win32/Sprisky.U!cl` | **Defender false positive** on the unsigned Rust MSI. Per [Policies](https://github.com/microsoft/winget-pkgs/blob/master/doc/Policies.md#security-scans-and-potentially-unwanted-applications-pua), *any* security-scan hit is an automatic rejection. | **Open blocker — see below.** Release pipeline now Authenticode-signs the EXE + MSI when a cert is configured. |
 | The validator also ran `C:\Windows\Installer\{...}\ProductIcon.exe` and it crashed | The MSI used the **EXE itself as its ARP icon** (`<Icon SourceFile='...inlook.exe'>`), so it embedded a second copy of the binary that Windows extracted and the validator executed. | WiX now points the icon at `assets/inlook.ico`; `build.rs` (winresource) embeds the icon + version metadata into the EXE. Smaller MSI, no second executable. |
 
-> **Do not resubmit v0.5.0.** The fixes above require a *rebuilt* MSI, so the
-> next winget submission must target a new release (the static-CRT `fix:` lands
-> as `0.5.1`/next) with a freshly computed `InstallerUrl`, `InstallerSha256`,
-> and `ProductCode`. Let the stale PR #379422 close on its own.
+> **Update (2026-07-10):** PR #379422 was ultimately **merged** — the 0.5.0
+> manifests are live upstream, so `StruisICT.InLook` exists and every later
+> version is a bot-driven *update* (`winget-releaser` needs
+> `fork-user: Struis112` since the fork is not under the org). The 0.6.0
+> release fixed the launch failure (static CRT) and its unsigned MSI/EXE
+> scanned clean with Defender 4.18.26060, so the Sprisky false positive is
+> gone with the rebuilt binary.
 
 ## Open blocker: Defender false positive (`Trojan:Win32/Sprisky.U!cl`)
 
