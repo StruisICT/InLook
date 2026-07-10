@@ -79,6 +79,25 @@ development) the contract may still change. Releases are automated from
 [Conventional Commits](https://www.conventionalcommits.org/) via release-please;
 see [`AGENTS.md` §5.1](AGENTS.md) for the full policy.
 
+## Code signing policy
+
+Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/),
+certificate by [SignPath Foundation](https://signpath.org/).
+
+- **Committers and reviewers:** [Struis112](https://github.com/Struis112)
+- **Approvers:** [Struis112](https://github.com/Struis112)
+
+Windows release binaries (`inlook.exe`, the `.msi`) are built from source by
+GitHub Actions ([`release.yml`](.github/workflows/release.yml)) and signed per
+release after manual approval.
+
+### Privacy policy
+
+InLook does not transfer any information to other networked systems: it opens
+no network connections, has no telemetry, and phones nothing home. Email
+content stays on your machine; remote content inside emails is never loaded
+(blocked by CSP + iframe sandbox).
+
 ## License
 
 Dual-licensed under **MIT OR Apache-2.0**. See [`LICENSE`](LICENSE).
