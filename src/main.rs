@@ -145,16 +145,76 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         }
     };
 
+    // On Windows, offer once (after the window has painted) to make InLook the
+    // default .eml viewer. Done inside the loop so the email is visible behind
+    // the prompt rather than a blank window.
+    #[cfg(windows)]
+    let prompt_path = path.clone();
+    #[cfg(windows)]
+    let mut default_prompt_pending = true;
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-        if let Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            *control_flow = ControlFlow::Exit;
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            }
+            #[cfg(windows)]
+            Event::RedrawEventsCleared if default_prompt_pending => {
+                default_prompt_pending = false;
+                maybe_offer_default(&prompt_path);
+            }
+            _ => {}
         }
     });
+}
+
+/// Offer, at most once and only if InLook isn't already the default, to make it
+/// the default `.eml` viewer. Windows 10/11 won't let an app set the default
+/// silently (the per-user choice is hash protected), so on "Set as default" we
+/// register InLook as a handler and open the OS "Open with" chooser, where the
+/// user confirms via "Always use this app".
+#[cfg(windows)]
+fn maybe_offer_default(file: &Path) {
+    if registry::is_default_eml_handler() || registry::default_prompt_suppressed() {
+        return;
+    }
+    // Make InLook a registered choice first (no elevation needed).
+    let _ = registry::register_per_user();
+
+    use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
+    let result = MessageDialog::new()
+        .set_level(MessageLevel::Info)
+        .set_title(APP_NAME)
+        .set_description(
+            "Make InLook your default app for .eml email files?\n\n\
+             You'll get a Windows dialog where you can pick InLook and tick \
+             \"Always use this app\".",
+        )
+        .set_buttons(MessageButtons::YesNoCancelCustom(
+            "Set as default".to_owned(),
+            "Not now".to_owned(),
+            "Don't ask again".to_owned(),
+        ))
+        .show();
+
+    match result {
+        MessageDialogResult::Custom(s) if s == "Set as default" => {
+            if let Err(e) = registry::open_with_dialog(file) {
+                show_error(&format!(
+                    "Couldn't open the Windows \"Open with\" dialog:\n{e}"
+                ));
+            }
+        }
+        MessageDialogResult::Custom(s) if s == "Don't ask again" => {
+            registry::suppress_default_prompt();
+        }
+        // "Not now" or dialog closed: leave it, we'll offer again next time.
+        _ => {}
+    }
 }
 
 /// Read an EML file, refusing anything over [`MAX_FILE_BYTES`]. Avoids
