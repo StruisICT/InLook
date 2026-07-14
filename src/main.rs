@@ -186,33 +186,34 @@ fn maybe_offer_default(file: &Path) {
     let _ = registry::register_per_user();
 
     use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
+    // Standard Yes/No/Cancel, not custom-labelled buttons: rfd only renders
+    // custom button text (and returns `Custom(label)`) on Windows with the
+    // `common-controls-v6` feature, which we don't enable. Without it the
+    // dialog falls back to a plain Yes/No/Cancel message box, so we map those
+    // three results and spell out what each does in the message body. Cancel /
+    // Esc is the safe default (offer again next time).
     let result = MessageDialog::new()
         .set_level(MessageLevel::Info)
         .set_title(APP_NAME)
         .set_description(
             "Make InLook your default app for .eml email files?\n\n\
-             You'll get a Windows dialog where you can pick InLook and tick \
-             \"Always use this app\".",
+             \u{2022} Yes \u{2014} pick InLook (tick \"Always\") in the Windows dialog\n\
+             \u{2022} No \u{2014} don't ask again\n\
+             \u{2022} Cancel \u{2014} not now",
         )
-        .set_buttons(MessageButtons::YesNoCancelCustom(
-            "Set as default".to_owned(),
-            "Not now".to_owned(),
-            "Don't ask again".to_owned(),
-        ))
+        .set_buttons(MessageButtons::YesNoCancel)
         .show();
 
     match result {
-        MessageDialogResult::Custom(s) if s == "Set as default" => {
+        MessageDialogResult::Yes => {
             if let Err(e) = registry::open_with_dialog(file) {
                 show_error(&format!(
                     "Couldn't open the Windows \"Open with\" dialog:\n{e}"
                 ));
             }
         }
-        MessageDialogResult::Custom(s) if s == "Don't ask again" => {
-            registry::suppress_default_prompt();
-        }
-        // "Not now" or dialog closed: leave it, we'll offer again next time.
+        MessageDialogResult::No => registry::suppress_default_prompt(),
+        // Cancel / Esc / closed: offer again next time.
         _ => {}
     }
 }
