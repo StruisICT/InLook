@@ -1,74 +1,60 @@
 #!/usr/bin/env python3
-"""Generate the InLook icon set from a single design specification.
+"""Generate the InLook icon set from a single master image.
+
+Design source (committed to the repo):
+    assets/inlook-master.png  the master icon artwork (square, RGBA, transparent
+                              outside the rounded badge). Highest available
+                              resolution — sizes larger than the master are
+                              upscaled, so a bigger master gives crisper large
+                              icons.
 
 Output (committed to the repo):
-    assets/inlook.png         1024x1024 master raster
+    assets/inlook.png         1024x1024 master raster (AppImage + macOS bundling)
     assets/inlook.ico         multi-resolution Windows icon
-    assets/icons/inlook-N.png Linux hicolor-theme sizes (16, 32, 48, 64, 128, 256, 512)
+    assets/icons/inlook-N.png Linux hicolor-theme sizes (16, 32, 48, 64, 128, 256, 512, 1024)
 
 The macOS .icns is built on the macOS runner during release (scripts/build-dmg.sh)
 because creating one cleanly requires iconutil from the macOS SDK.
 
-Re-run this script if the icon design changes:
+Re-run this script whenever assets/inlook-master.png changes:
     python scripts/generate-icons.py
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 ICON_DIR = ASSETS / "icons"
-
-# Design tokens — keep aligned with the HTML chrome rendered in src/render.rs
-COLOR_BG = (44, 82, 130, 255)      # #2c5282 — accent blue
-COLOR_FG = (255, 255, 255, 255)    # white monogram
-RADIUS_RATIO = 0.195               # rounded-square corner radius / size
-MONOGRAM = "IL"
-MONOGRAM_RATIO = 0.55              # text height / size
-MONOGRAM_Y_OFFSET = -0.02          # nudge up slightly for optical centering
-
-FONT_CANDIDATES = [
-    "C:/Windows/Fonts/seguisb.ttf",          # Segoe UI Semibold (Windows)
-    "C:/Windows/Fonts/segoeuib.ttf",         # Segoe UI Bold
-    "C:/Windows/Fonts/arialbd.ttf",          # Arial Bold
-    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
-]
+MASTER = ASSETS / "inlook-master.png"
 
 PNG_SIZES = [16, 32, 48, 64, 128, 256, 512, 1024]
 ICO_SIZES = [16, 32, 48, 64, 128, 256]
 
 
-def find_font(pixel_size: int) -> ImageFont.ImageFont:
-    for path in FONT_CANDIDATES:
-        if os.path.exists(path):
-            return ImageFont.truetype(path, pixel_size)
-    print("WARN: no bold TTF font found, falling back to default", file=sys.stderr)
-    return ImageFont.load_default()
-
-
-def draw_icon(size: int) -> Image.Image:
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-
-    radius = int(size * RADIUS_RATIO)
-    d.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=COLOR_BG)
-
-    font = find_font(int(size * MONOGRAM_RATIO))
-    bbox = d.textbbox((0, 0), MONOGRAM, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = (size - text_w) // 2 - bbox[0]
-    y = (size - text_h) // 2 - bbox[1] + int(size * MONOGRAM_Y_OFFSET)
-    d.text((x, y), MONOGRAM, fill=COLOR_FG, font=font)
+def load_master() -> Image.Image:
+    if not MASTER.exists():
+        print(f"ERROR: master image not found: {MASTER}", file=sys.stderr)
+        sys.exit(1)
+    img = Image.open(MASTER).convert("RGBA")
+    if img.width != img.height:
+        print(
+            f"WARN: master is {img.width}x{img.height}, not square — "
+            "output may look stretched",
+            file=sys.stderr,
+        )
     return img
+
+
+def resample(master: Image.Image, size: int) -> Image.Image:
+    """High-quality resize of the master to a square `size`. LANCZOS handles
+    both down- and up-scaling; upscaling past the master's resolution is
+    inherently soft."""
+    return master.resize((size, size), Image.LANCZOS)
 
 
 def write_multi_ico(path: Path, frames: list[Image.Image]) -> None:
@@ -125,27 +111,25 @@ def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     ICON_DIR.mkdir(parents=True, exist_ok=True)
 
-    rendered: dict[int, Image.Image] = {s: draw_icon(s) for s in PNG_SIZES}
+    master = load_master()
+    rendered: dict[int, Image.Image] = {s: resample(master, s) for s in PNG_SIZES}
 
     # Linux hicolor-theme PNGs
     for s in PNG_SIZES:
-        out = ICON_DIR / f"inlook-{s}.png"
-        rendered[s].save(out, "PNG", optimize=True)
+        rendered[s].save(ICON_DIR / f"inlook-{s}.png", "PNG", optimize=True)
 
     # Master raster (used by AppImage + macOS bundling)
-    master = ASSETS / "inlook.png"
-    rendered[1024].save(master, "PNG", optimize=True)
+    master_out = ASSETS / "inlook.png"
+    rendered[1024].save(master_out, "PNG", optimize=True)
 
-    # Multi-resolution Windows ICO. Build it by hand because Pillow's
-    # ICO writer ignores `append_images` and uses one source image for all
-    # sizes — that loses crispness at 16/32px where re-rendered glyphs are
-    # noticeably sharper than a downsampled 1024px master.
+    # Multi-resolution Windows ICO. Build it by hand because Pillow's ICO writer
+    # ignores `append_images` and uses one source image for all sizes.
     ico_path = ASSETS / "inlook.ico"
     write_multi_ico(ico_path, [rendered[s] for s in ICO_SIZES])
 
     # Print a small summary so the user can sanity-check sizes
     print("Generated:")
-    for p in [master, ico_path] + sorted(ICON_DIR.iterdir()):
+    for p in [master_out, ico_path] + sorted(ICON_DIR.iterdir()):
         print(f"  {p.relative_to(ROOT)}  ({p.stat().st_size:,} bytes)")
     return 0
 
