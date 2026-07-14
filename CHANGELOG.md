@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/StruisICT/InLook/compare/v0.6.0...v0.7.0) (2026-07-14)
+
+
+### Features
+
+* default .eml-app prompt, WebView2 data-folder fix, and new icon ([#43](https://github.com/StruisICT/InLook/issues/43)) ([ac6d904](https://github.com/StruisICT/InLook/commit/ac6d90441b8982ce5382f3b3fd3ff0ac1dddc3e0))
+
 ## [0.6.0](https://github.com/StruisICT/InLook/compare/v0.5.0...v0.6.0) (2026-07-10)
 
 
