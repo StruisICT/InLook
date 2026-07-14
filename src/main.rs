@@ -127,12 +127,20 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         }
     };
 
-    let _webview = match WebViewBuilder::new(&window).with_html(html).build() {
+    // WebView2's default user-data folder sits next to the executable. Installed
+    // builds live in Program Files, which standard users can't write to, so that
+    // default fails with "access denied" (HRESULT 0x80070005). Point WebView2 at
+    // a per-user, writable folder instead. `web_context` must outlive `build()`;
+    // it lives until the (diverging) event loop, so it is never dropped early.
+    let mut web_context = wry::WebContext::new(webview_data_dir());
+    let _webview = match WebViewBuilder::new(&window)
+        .with_web_context(&mut web_context)
+        .with_html(html)
+        .build()
+    {
         Ok(v) => v,
         Err(e) => {
-            show_error(&format!(
-                "Failed to create WebView2 surface: {e}\n\nMake sure the Microsoft Edge WebView2 Runtime is installed."
-            ));
+            show_error(&webview_error_message(&e));
             return ExitCode::FAILURE;
         }
     };
@@ -171,6 +179,88 @@ fn show_error(msg: &str) {
         .set_title(APP_NAME)
         .set_description(msg)
         .show();
+}
+
+/// A per-user, writable directory for WebView2's data folder. Installed builds
+/// live in `Program Files`, which standard users can't write to, so WebView2's
+/// default (a folder beside `inlook.exe`) fails with access-denied. Store it
+/// under `%LOCALAPPDATA%\InLook\WebView2` instead.
+#[cfg(windows)]
+fn webview_data_dir() -> Option<PathBuf> {
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    let dir = Path::new(&base).join(APP_NAME).join("WebView2");
+    // Best-effort: if creation fails, WebView2 surfaces its own error on build.
+    let _ = std::fs::create_dir_all(&dir);
+    Some(dir)
+}
+
+/// Other platforms don't have the Program Files problem; let `WebContext` use
+/// its default per-user location.
+#[cfg(not(windows))]
+fn webview_data_dir() -> Option<PathBuf> {
+    None
+}
+
+/// Turn a failed WebView build into a clear, actionable message that prompts
+/// the user rather than dumping a raw error. On Windows it distinguishes
+/// "runtime not installed" (tell them how to install it) from "installed but
+/// couldn't start" (usually a data-folder permission problem).
+#[cfg(windows)]
+fn webview_error_message(e: &wry::Error) -> String {
+    if webview2_runtime_installed() {
+        format!(
+            "InLook couldn't display the email body.\n\n\
+             The Microsoft Edge WebView2 Runtime is installed, but it failed to \
+             start:\n{e}\n\n\
+             This is usually a permissions problem with WebView2's data folder. \
+             InLook keeps it here:\n    %LOCALAPPDATA%\\{APP_NAME}\\WebView2\n\n\
+             Make sure that folder exists and is writable, then reopen the email."
+        )
+    } else {
+        format!(
+            "InLook can't display the email body because the Microsoft Edge \
+             WebView2 Runtime isn't installed.\n\n\
+             Install it (free, from Microsoft) and then reopen this email:\n\
+             https://developer.microsoft.com/microsoft-edge/webview2/\n\n\
+             Technical detail: {e}"
+        )
+    }
+}
+
+/// Non-Windows: WebKitGTK/WKWebView back the renderer instead of WebView2.
+#[cfg(not(windows))]
+fn webview_error_message(e: &wry::Error) -> String {
+    format!(
+        "InLook couldn't display the email body:\n{e}\n\n\
+         On Linux this usually means the WebKitGTK runtime (libwebkit2gtk-4.1) \
+         is missing; install it with your package manager and try again."
+    )
+}
+
+/// Whether the Microsoft Edge WebView2 Runtime looks installed. The Evergreen
+/// runtime registers a product version (`pv`) under EdgeUpdate in either the
+/// per-machine or per-user hive; a present, non-zero value means it's there.
+#[cfg(windows)]
+fn webview2_runtime_installed() -> bool {
+    use windows_registry::{CURRENT_USER, LOCAL_MACHINE};
+    // Evergreen Runtime app GUID. A 64-bit process sees the per-machine entry
+    // under WOW6432Node; the second path covers per-user / non-WOW layouts.
+    const KEYS: [&str; 2] = [
+        "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        "SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+    ];
+    for hive in [LOCAL_MACHINE, CURRENT_USER] {
+        for key in KEYS {
+            if let Ok(k) = hive.open(key) {
+                if let Ok(pv) = k.get_string("pv") {
+                    if !pv.is_empty() && pv != "0.0.0.0" {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 /// On Windows GUI subsystem builds, our process has no attached console, so
