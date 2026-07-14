@@ -1,9 +1,8 @@
-From: "Jane Doe" <jane.doe@example.com>
-To: "Daan Struis" <dstruis@example.com>
-Cc: support@struis-ict.nl
-Subject: Welkom bij Struis EML Viewer — een test bericht
+From: "InLook" <hello@example.com>
+To: "You" <you@example.com>
+Subject: Welcome to InLook
 Date: Fri, 08 May 2026 10:30:00 +0200
-Message-ID: <test-001@struis-ict.nl>
+Message-ID: <welcome-001@example.com>
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="outer"
 
@@ -14,44 +13,56 @@ Content-Type: multipart/alternative; boundary="inner"
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Beste Daan,
+Welcome to InLook!
 
-Dit is een eenvoudige plain-text fallback voor mail clients die geen HTML weergeven.
+InLook is a fast, safe viewer for .eml email files. It opens a message in a
+clean native window and shows its headers, body, and attachments — without
+loading remote trackers or running anything the email tries to sneak in.
 
-Met vriendelijke groet,
-Jane
+You're reading the plain-text version of this message, shown by clients that
+don't render HTML.
+
+Enjoy,
+The InLook viewer
 
 --inner
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
 <html><body>
-<h2 style="color:#2c5282">Beste Daan,</h2>
-<p>Dit is een <strong>HTML versie</strong> van het bericht. De Struis EML Viewer
-zou dit netjes moeten renderen — inclusief <em>opmaak</em>, <code>code</code>,
-en eventuele <a href="https://struis-ict.nl">links</a>.</p>
+<h2 style="color:#2c5282">Welcome to InLook 👋</h2>
+<p>InLook is a <strong>fast, safe</strong> viewer for <code>.eml</code> email
+files. If you can read this nicely formatted message, everything is working.</p>
+<p>Here's what you're looking at:</p>
 <ul>
-  <li>Headers worden bovenaan getoond</li>
-  <li>De body draait in een afgeschermde iframe</li>
-  <li>Bijlagen staan onderaan</li>
+  <li>The <strong>headers</strong> (From, To, Subject, Date) appear at the top</li>
+  <li>The <strong>body</strong> renders inside a sandboxed iframe — no scripts,
+      no network, no tracking</li>
+  <li>Any <strong>attachments</strong> are listed below</li>
 </ul>
-<p>Met vriendelijke groet,<br><strong>Jane Doe</strong></p>
+<p>Remote content is blocked by default. The image below will
+<em>not</em> load — that's on purpose, so hidden tracking pixels can't phone
+home:</p>
 <img src="https://example.com/tracking-pixel.png" width="1" height="1" alt="">
+<p>Open any <code>.eml</code> file to view it here.</p>
+<p>Happy reading!<br><strong>The InLook viewer</strong></p>
 </body></html>
 
 --inner--
 
 --outer
-Content-Type: text/plain; charset=utf-8; name="readme.txt"
-Content-Disposition: attachment; filename="readme.txt"
+Content-Type: text/plain; charset=utf-8; name="getting-started.txt"
+Content-Disposition: attachment; filename="getting-started.txt"
 Content-Transfer-Encoding: 7bit
 
-This is a test attachment from Struis ICT.
-It demonstrates that the EML viewer can detect and list attachments.
+This is a sample attachment.
+
+It's here to show that InLook detects and lists attachments at the bottom of
+the message. Open a real .eml file to view your own mail.
 
 --outer
-Content-Type: application/pdf; name="invoice.pdf"
-Content-Disposition: attachment; filename="invoice.pdf"
+Content-Type: application/pdf; name="sample.pdf"
+Content-Disposition: attachment; filename="sample.pdf"
 Content-Transfer-Encoding: base64
 
 JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4K
