@@ -43,7 +43,10 @@ fn main() -> ExitCode {
         #[cfg(windows)]
         Some("register") => match registry::register() {
             Ok(()) => {
-                println!(".eml files are now associated with {APP_NAME}.");
+                println!("{APP_NAME} is registered as an .eml handler.");
+                println!("Opening Windows Settings on the {APP_NAME} page — click \"Set default\"");
+                println!("(Windows 11) or pick {APP_NAME} for .eml (Windows 10) to finish.");
+                registry::open_default_apps_settings();
                 ExitCode::SUCCESS
             }
             Err(e) => {
