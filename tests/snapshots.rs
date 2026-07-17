@@ -106,7 +106,7 @@ fn rendered_fixtures_match_snapshots() {
         checked += 1;
     }
     assert!(
-        checked >= 8,
-        "expected at least 6 fixtures, checked {checked}"
+        checked >= 11,
+        "expected at least 11 fixtures, checked {checked}"
     );
 }

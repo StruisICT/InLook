@@ -1,0 +1,20 @@
+From: Alice <alice@example.com>
+To: bob@example.com
+Subject: Inline image via cid
+Date: Fri, 17 Jul 2026 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="REL1"
+
+--REL1
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Logo: <img src="cid:logo@example"></p></body></html>
+--REL1
+Content-Type: image/png; name="logo.png"
+Content-ID: <logo@example>
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="logo.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAA
+AABJRU5ErkJggg==
+--REL1--

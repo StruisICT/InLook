@@ -1,0 +1,22 @@
+From: carol@example.com
+To: bob@example.com
+Subject: Fwd: original message
+Date: Fri, 17 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MIX1"
+
+--MIX1
+Content-Type: text/plain; charset=utf-8
+
+See the attached original.
+--MIX1
+Content-Type: message/rfc822; name="original.eml"
+Content-Disposition: attachment; filename="original.eml"
+
+From: dave@example.com
+To: carol@example.com
+Subject: The original
+Date: Thu, 16 Jul 2026 08:00:00 +0000
+
+This is the original inner message.
+--MIX1--

@@ -11,5 +11,24 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
+pub mod extract;
 pub mod msg;
 pub mod render;
+
+/// One attachment as shown in the viewer. `index` positions map 1:1 onto
+/// [`extract::extract_attachment`], for both formats.
+pub struct AttachmentMeta {
+    pub name: String,
+    pub size: u64,
+    /// An attached email (message/rfc822 part in `.eml`, embedded message
+    /// storage in `.msg`) — rendered as "open in InLook" instead of "save".
+    pub is_message: bool,
+}
+
+/// An inline image candidate for `cid:` substitution: content-id (without
+/// angle brackets), optional declared MIME type, and the raw bytes.
+pub struct InlineImage {
+    pub content_id: String,
+    pub mime: Option<String>,
+    pub data: Vec<u8>,
+}
