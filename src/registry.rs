@@ -254,6 +254,54 @@ pub fn suppress_default_prompt() {
     }
 }
 
+// --- Optional update check (opt-in, off by default) ---
+//
+// The whole feature is gated on explicit consent stored here. Until the user
+// answers the one-time prompt, InLook makes no network call — preserving the
+// "offline by default" guarantee. Values live in HKCU (no elevation).
+
+/// Whether we've already asked the user about update checks (once ever).
+pub fn update_prompt_answered() -> bool {
+    CURRENT_USER
+        .open(SETTINGS_KEY)
+        .and_then(|k| k.get_string("UpdateCheckPrompted"))
+        .map(|v| v == "1")
+        .unwrap_or(false)
+}
+
+/// Record the user's answer to the update-check consent prompt.
+pub fn set_update_check(enabled: bool) {
+    if let Ok(k) = CURRENT_USER.create(SETTINGS_KEY) {
+        let _ = k.set_string("UpdateCheckPrompted", "1");
+        let _ = k.set_string("UpdateCheckEnabled", if enabled { "1" } else { "0" });
+    }
+}
+
+/// Whether the user opted in to update checks.
+pub fn update_check_enabled() -> bool {
+    CURRENT_USER
+        .open(SETTINGS_KEY)
+        .and_then(|k| k.get_string("UpdateCheckEnabled"))
+        .map(|v| v == "1")
+        .unwrap_or(false)
+}
+
+/// The version string we last showed an update notice for — so each new
+/// release is announced at most once.
+pub fn last_notified_version() -> Option<String> {
+    CURRENT_USER
+        .open(SETTINGS_KEY)
+        .ok()
+        .and_then(|k| k.get_string("LastNotifiedVersion").ok())
+}
+
+/// Remember that we've announced `version`, so we don't nag again for it.
+pub fn set_last_notified_version(version: &str) {
+    if let Ok(k) = CURRENT_USER.create(SETTINGS_KEY) {
+        let _ = k.set_string("LastNotifiedVersion", version);
+    }
+}
+
 /// Open the Windows "Open with" chooser for `file` with the "Always use this
 /// app" option enabled, letting the user set InLook as the default through the
 /// OS's own sanctioned path. We omit `OAIF_EXEC` on purpose so choosing an app
