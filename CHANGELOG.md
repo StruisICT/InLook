@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/StruisICT/InLook/compare/v0.7.0...v0.8.0) (2026-07-17)
+
+
+### Features
+
+* inline cid: images, attachment saving, and nested message opening ([#51](https://github.com/StruisICT/InLook/issues/51)) ([ea67c59](https://github.com/StruisICT/InLook/commit/ea67c595420b3c45118309f67c78272651681ea6))
+* view Outlook .msg and .oft email files ([#49](https://github.com/StruisICT/InLook/issues/49)) ([f493f4b](https://github.com/StruisICT/InLook/commit/f493f4bbf89bf81df1bdf31612303a0e199f5217))
+* **windows:** Chrome-style default-app flow for register ([#47](https://github.com/StruisICT/InLook/issues/47)) ([3619c45](https://github.com/StruisICT/InLook/commit/3619c4557760c08f3fc6d92f4bfb1d3c712e965b))
+
+
+### Bug Fixes
+
+* hostile multipart EML could crash InLook — upgrade mail-parser to 0.11 ([#50](https://github.com/StruisICT/InLook/issues/50)) ([a68601d](https://github.com/StruisICT/InLook/commit/a68601d111f41a735e73e633adf83e336548ff33))
+
 ## [0.7.0](https://github.com/StruisICT/InLook/compare/v0.6.0...v0.7.0) (2026-07-14)
 
 
