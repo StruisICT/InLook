@@ -11,6 +11,7 @@
 //! Untrusted-input rules: every stream read is capped, string decoding is
 //! lossy, and any structural surprise degrades to `None` instead of failing.
 
+use crate::{AttachmentMeta, InlineImage};
 use cfb::CompoundFile;
 use std::io::{Cursor, Read};
 
@@ -38,9 +39,14 @@ pub struct Msg {
     pub date: Option<String>,
     pub body_text: Option<String>,
     pub body_html: Option<String>,
-    /// (display name, payload size in bytes)
-    pub attachments: Vec<(String, u64)>,
+    pub attachments: Vec<AttachmentMeta>,
+    /// Attachments carrying PR_ATTACH_CONTENT_ID, for `cid:` inlining.
+    pub inline_images: Vec<InlineImage>,
 }
+
+/// Total budget for payloads read for `cid:` inlining. Attachments beyond
+/// this render as broken images rather than ballooning the page.
+const MAX_INLINE_TOTAL: usize = 8 * 1024 * 1024;
 
 /// Parse a `.msg` byte buffer. Returns `None` when the compound file cannot
 /// be opened or contains nothing recognizable as a message.
@@ -67,26 +73,68 @@ pub fn parse(bytes: &[u8]) -> Option<Msg> {
     let date = fixed_props_filetime(&mut cf).map(filetime_to_rfc822);
 
     let mut attachments = Vec::new();
+    let mut inline_images = Vec::new();
+    let mut inline_budget = MAX_INLINE_TOTAL;
     {
-        let dirs: Vec<String> = cf
-            .read_root_storage()
-            .filter(|e| e.is_storage() && e.name().starts_with("__attach_version1.0_"))
-            .map(|e| e.name().to_string())
-            .collect();
+        let dirs = attachment_dirs(&mut cf);
         for dir in dirs {
             let prefix = format!("/{dir}");
+            // An embedded message attachment stores a whole sub-message as a
+            // storage under PR_ATTACH_DATA_OBJ.
+            let embedded = format!("{prefix}/__substg1.0_3701000D");
+            let is_message = cf.entry(&embedded).map(|e| e.is_storage()).unwrap_or(false);
             // PR_ATTACH_LONG_FILENAME, then PR_ATTACH_FILENAME (8.3), then
-            // PR_ATTACH_DISPLAY_NAME.
+            // PR_ATTACH_DISPLAY_NAME; for embedded messages, their subject.
             let name = string_prop(&mut cf, &prefix, "3707")
                 .or_else(|| string_prop(&mut cf, &prefix, "3704"))
                 .or_else(|| string_prop(&mut cf, &prefix, "3001"))
-                .unwrap_or_else(|| "(unnamed)".to_string());
-            // Size only — the payload is never read.
+                .or_else(|| {
+                    if is_message {
+                        string_prop(&mut cf, &embedded, "0037")
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| {
+                    if is_message {
+                        "(attached message)"
+                    } else {
+                        "(unnamed)"
+                    }
+                    .to_string()
+                });
+            // Size only — payloads are read solely for cid-referenced images.
             let size = cf
                 .entry(format!("{prefix}/__substg1.0_37010102"))
                 .map(|e| e.len())
                 .unwrap_or(0);
-            attachments.push((name, size));
+
+            // PR_ATTACH_CONTENT_ID → candidate for cid: inlining.
+            if !is_message {
+                if let Some(cid) = string_prop(&mut cf, &prefix, "3712") {
+                    let cid = cid.trim_matches(['<', '>']).to_string();
+                    if !cid.is_empty() && (size as usize) <= inline_budget {
+                        if let Some(data) =
+                            read_stream(&mut cf, &format!("{prefix}/__substg1.0_37010102"))
+                        {
+                            inline_budget = inline_budget.saturating_sub(data.len());
+                            // PR_ATTACH_MIME_TAG, if the producer wrote one.
+                            let mime = string_prop(&mut cf, &prefix, "370E");
+                            inline_images.push(InlineImage {
+                                content_id: cid,
+                                mime,
+                                data,
+                            });
+                        }
+                    }
+                }
+            }
+
+            attachments.push(AttachmentMeta {
+                name,
+                size,
+                is_message,
+            });
         }
     }
 
@@ -105,11 +153,24 @@ pub fn parse(bytes: &[u8]) -> Option<Msg> {
         body_text,
         body_html,
         attachments,
+        inline_images,
     })
 }
 
+/// Attachment storage names at the message root, sorted for a stable order
+/// shared with [`crate::extract`].
+pub(crate) fn attachment_dirs(cf: &mut CompoundFile<Cursor<&[u8]>>) -> Vec<String> {
+    let mut dirs: Vec<String> = cf
+        .read_root_storage()
+        .filter(|e| e.is_storage() && e.name().starts_with("__attach_version1.0_"))
+        .map(|e| e.name().to_string())
+        .collect();
+    dirs.sort();
+    dirs
+}
+
 /// Read a whole stream, capped at [`MAX_PROP_BYTES`]. `None` if absent.
-fn read_stream(cf: &mut CompoundFile<Cursor<&[u8]>>, path: &str) -> Option<Vec<u8>> {
+pub(crate) fn read_stream(cf: &mut CompoundFile<Cursor<&[u8]>>, path: &str) -> Option<Vec<u8>> {
     let stream = cf.open_stream(path).ok()?;
     let mut buf = Vec::new();
     stream
@@ -122,7 +183,7 @@ fn read_stream(cf: &mut CompoundFile<Cursor<&[u8]>>, path: &str) -> Option<Vec<u
 /// Read a string property by 4-hex-digit id under `storage_prefix` ("" for
 /// the message root). Tries the Unicode (001F, UTF-16LE) variant first, then
 /// the legacy 8-bit (001E) one; both decode lossily.
-fn string_prop(
+pub(crate) fn string_prop(
     cf: &mut CompoundFile<Cursor<&[u8]>>,
     storage_prefix: &str,
     id: &str,
@@ -149,9 +210,17 @@ fn utf16le_lossy(bytes: &[u8]) -> String {
 /// word, id in the high word), u32 flags, 8-byte value.
 fn fixed_props_filetime(cf: &mut CompoundFile<Cursor<&[u8]>>) -> Option<u64> {
     let bytes = read_stream(cf, "/__properties_version1.0")?;
+    // Top-level messages have a 32-byte header; embedded messages (which we
+    // rebuild into standalone files when opening nested attachments) use a
+    // 24-byte one. Try both alignments — entries are only accepted on an
+    // exact PT_SYSTIME tag match, so the wrong alignment finds nothing.
+    scan_filetime_entries(bytes.get(32..)?).or_else(|| scan_filetime_entries(bytes.get(24..)?))
+}
+
+fn scan_filetime_entries(entries: &[u8]) -> Option<u64> {
     let mut submit = None;
     let mut delivery = None;
-    for entry in bytes.get(32..)?.chunks_exact(16) {
+    for entry in entries.chunks_exact(16) {
         let tag = u32::from_le_bytes([entry[0], entry[1], entry[2], entry[3]]);
         let (prop_type, prop_id) = ((tag & 0xFFFF) as u16, (tag >> 16) as u16);
         if prop_type != 0x0040 {

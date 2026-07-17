@@ -1,4 +1,5 @@
-use mail_parser::{Address, MessageParser, MimeHeaders};
+use crate::{AttachmentMeta, InlineImage};
+use mail_parser::{Address, MessageParser, MimeHeaders, PartType};
 use std::path::Path;
 
 /// Truncate any single body part larger than this before embedding it in the
@@ -35,20 +36,44 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
         .map(mail_parser::DateTime::to_rfc822)
         .unwrap_or_else(|| "(no date)".to_string());
 
-    let body_html = msg.body_html(0).map(std::borrow::Cow::into_owned);
     let body_text = msg.body_text(0).map(std::borrow::Cow::into_owned);
 
-    let mut attachments: Vec<(String, u64)> = Vec::new();
+    let mut attachments: Vec<AttachmentMeta> = Vec::new();
+    let mut inline_images: Vec<InlineImage> = Vec::new();
     for att in msg.attachments() {
+        let is_message = matches!(att.body, PartType::Message(_));
         let name = att
             .attachment_name()
             .or_else(|| {
                 att.content_type()
                     .and_then(mail_parser::ContentType::subtype)
             })
-            .unwrap_or("(unnamed)");
-        attachments.push((name.to_string(), att.contents().len() as u64));
+            .unwrap_or(if is_message {
+                "(attached message)"
+            } else {
+                "(unnamed)"
+            });
+        if let Some(cid) = att.content_id() {
+            let mime = att.content_type().map(|ct| match ct.subtype() {
+                Some(sub) => format!("{}/{}", ct.ctype(), sub),
+                None => ct.ctype().to_string(),
+            });
+            inline_images.push(InlineImage {
+                content_id: cid.trim_matches(['<', '>']).to_string(),
+                mime,
+                data: att.contents().to_vec(),
+            });
+        }
+        attachments.push(AttachmentMeta {
+            name: name.to_string(),
+            size: att.contents().len() as u64,
+            is_message,
+        });
     }
+
+    let body_html = msg
+        .body_html(0)
+        .map(|h| inline_cid_images(&h, &inline_images));
 
     page(
         &from,
@@ -82,6 +107,7 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
     };
     let subject = m.subject.as_deref().unwrap_or("(no subject)");
     let date = m.date.unwrap_or_else(|| "(no date)".to_string());
+    let body_html = m.body_html.map(|h| inline_cid_images(&h, &m.inline_images));
 
     page(
         &from,
@@ -89,7 +115,7 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
         m.display_cc.as_deref().unwrap_or(""),
         subject,
         &date,
-        m.body_html,
+        body_html,
         m.body_text,
         &m.attachments,
         path,
@@ -108,7 +134,7 @@ fn page(
     date: &str,
     body_html: Option<String>,
     body_text: Option<String>,
-    attachments: &[(String, u64)],
+    attachments: &[AttachmentMeta],
     path: &Path,
 ) -> String {
     let body_section = match (body_html, body_text) {
@@ -182,6 +208,8 @@ iframe.body {{ flex: 1; width: 100%; border: none; min-height: 320px; background
 .atts ul {{ margin: 8px 0 0; padding-left: 20px; list-style: none; }}
 .atts li {{ padding: 4px 0; }}
 .atts .size {{ color: var(--muted); font-size: 12px; margin-left: 8px; }}
+.atts a {{ color: var(--accent); text-decoration: none; }}
+.atts a:hover {{ text-decoration: underline; }}
 footer {{
   padding: 8px 24px; font-size: 11px; color: var(--muted);
   background: var(--card); border-top: 1px solid var(--border);
@@ -218,16 +246,24 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
     )
 }
 
-fn attachments_section(attachments: &[(String, u64)]) -> String {
+/// Attachment list with action links. The `inlook://save/N` and
+/// `inlook://open/N` pseudo-URLs are intercepted by the binary's navigation
+/// handler — no script runs in the page, so the strict no-script CSP holds.
+fn attachments_section(attachments: &[AttachmentMeta]) -> String {
     if attachments.is_empty() {
         return String::new();
     }
     let mut items = String::new();
-    for (name, size) in attachments {
+    for (i, att) in attachments.iter().enumerate() {
+        let (action, label) = if att.is_message {
+            ("open", "email message — click to open".to_string())
+        } else {
+            ("save", format!("{} — click to save", human_bytes(att.size)))
+        };
         items.push_str(&format!(
-            "<li><span class=\"name\">{}</span> <span class=\"size\">{}</span></li>",
-            html_escape::encode_text(name),
-            human_bytes(*size)
+            "<li><a class=\"name\" href=\"inlook://{action}/{i}\">{}</a> <span class=\"size\">{}</span></li>",
+            html_escape::encode_text(&att.name),
+            label
         ));
     }
     let count = attachments.len();
@@ -235,6 +271,71 @@ fn attachments_section(attachments: &[(String, u64)]) -> String {
     format!(
         r#"<details class="atts" open><summary>{count} attachment{plural}</summary><ul>{items}</ul></details>"#,
     )
+}
+
+/// Replace `cid:<content-id>` references in an HTML body with `data:` URIs
+/// built from the message's own embedded parts. Keeps the no-remote-content
+/// guarantee: images render without any network access, and the CSP already
+/// allows `data:` images only.
+fn inline_cid_images(html: &str, images: &[InlineImage]) -> String {
+    let mut out = html.to_string();
+    for img in images {
+        if img.content_id.is_empty() || img.data.is_empty() {
+            continue;
+        }
+        let mime = img
+            .mime
+            .as_deref()
+            .filter(|m| m.starts_with("image/"))
+            .map(str::to_string)
+            .or_else(|| sniff_image_mime(&img.data).map(str::to_string));
+        let Some(mime) = mime else { continue };
+        let uri = format!("data:{mime};base64,{}", base64(&img.data));
+        out = out.replace(&format!("cid:{}", img.content_id), &uri);
+    }
+    out
+}
+
+/// Minimal image-type sniffer for parts without a usable declared MIME type.
+fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
+    if data.starts_with(b"\x89PNG") {
+        Some("image/png")
+    } else if data.starts_with(b"\xFF\xD8\xFF") {
+        Some("image/jpeg")
+    } else if data.starts_with(b"GIF8") {
+        Some("image/gif")
+    } else if data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else if data.starts_with(b"BM") {
+        Some("image/bmp")
+    } else {
+        None
+    }
+}
+
+/// Standard base64 (RFC 4648, with padding). Hand-rolled to keep the
+/// dependency surface of the untrusted-input path minimal.
+fn base64(data: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let n = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        out.push(TABLE[(n >> 18 & 63) as usize] as char);
+        out.push(TABLE[(n >> 12 & 63) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            TABLE[(n >> 6 & 63) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[(n & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    out
 }
 
 fn render_html_body(html: &str) -> String {
@@ -435,5 +536,46 @@ mod tests {
             &PathBuf::from("a.eml"),
         );
         assert!(html.contains("Outlook .msg"));
+    }
+
+    #[test]
+    fn base64_matches_rfc4648() {
+        assert_eq!(base64(b""), "");
+        assert_eq!(base64(b"f"), "Zg==");
+        assert_eq!(base64(b"fo"), "Zm8=");
+        assert_eq!(base64(b"foo"), "Zm9v");
+        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn image_sniffer_recognizes_common_types() {
+        assert_eq!(sniff_image_mime(b"\x89PNG\r\n"), Some("image/png"));
+        assert_eq!(sniff_image_mime(b"\xFF\xD8\xFF\xE0"), Some("image/jpeg"));
+        assert_eq!(sniff_image_mime(b"GIF89a"), Some("image/gif"));
+        assert_eq!(sniff_image_mime(b"not an image"), None);
+    }
+
+    #[test]
+    fn cid_inlining_replaces_only_matching_refs() {
+        let images = vec![crate::InlineImage {
+            content_id: "a@b".to_string(),
+            mime: Some("image/png".to_string()),
+            data: vec![1, 2, 3],
+        }];
+        let html = r#"<img src="cid:a@b"><img src="cid:other">"#;
+        let out = inline_cid_images(html, &images);
+        assert!(out.contains("data:image/png;base64,AQID"));
+        assert!(out.contains("cid:other"));
+    }
+
+    #[test]
+    fn cid_inlining_skips_non_images() {
+        let images = vec![crate::InlineImage {
+            content_id: "x".to_string(),
+            mime: Some("application/octet-stream".to_string()),
+            data: b"MZ not an image".to_vec(),
+        }];
+        let out = inline_cid_images(r#"<img src="cid:x">"#, &images);
+        assert!(out.contains("cid:x")); // untouched - not inlinable as an image
     }
 }

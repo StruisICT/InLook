@@ -13,7 +13,10 @@ email tries to sneak in.
   WebKitGTK on Linux, WKWebView on macOS) to render the email body.
 - **Safe by default** — HTML bodies are wrapped in a fully sandboxed `<iframe>`
   with a strict Content-Security-Policy. No remote images, no tracking pixels,
-  no scripts, no network. Inline `data:` images only.
+  no scripts, no network. Embedded (`cid:`) images render inline from the
+  message itself — never from the network.
+- **Attachments** — click to save any attachment (always via Save As, never
+  auto-run); attached emails open in a new InLook window.
 - **Cross-platform** — Windows (MSI + exe), Linux (`.deb` + AppImage + Flatpak),
   macOS (universal `.dmg`), Homebrew cask.
 - **System theme aware** — follows the OS light/dark setting automatically.

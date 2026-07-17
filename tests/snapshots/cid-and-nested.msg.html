@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="color-scheme" content="light dark">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';">
-<title>&lt;script&gt;document.title&lt;/script&gt; ☠️ naïve résumé — InLook</title>
+<title>Inline image and nested message — InLook</title>
 <style>
 :root {
   --bg: #f5f6f8; --fg: #1a1f2c; --muted: #6b7280; --accent: #2c5282;
@@ -60,22 +60,22 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 <body>
 <header>
   <div class="brand">Struis ICT — Free Software</div>
-  <h1>&lt;script&gt;document.title&lt;/script&gt; ☠️ naïve résumé</h1>
+  <h1>Inline image and nested message</h1>
   <table class="headers">
-    <tr><th>From</th><td>&lt;img src=x onerror=alert(1)&gt; &lt;evil@example.com&gt;</td></tr>
-    <tr><th>To</th><td>Bob "quoted" &lt;bob@example.com&gt;</td></tr>
+    <tr><th>From</th><td>Alice Example &lt;alice@example.com&gt;</td></tr>
+    <tr><th>To</th><td>Bob Example</td></tr>
     
-    <tr><th>Date</th><td>Mon, 11 May 2026 23:59:59 -0700</td></tr>
+    <tr><th>Date</th><td>(no date)</td></tr>
   </table>
 </header>
 <section class="body-wrap"><iframe class="body" sandbox="" srcdoc="&lt;!doctype html&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src 'none'; img-src data:; style-src 'unsafe-inline' data:; font-src data:; media-src data:;&quot;&gt;
 &lt;style&gt;body{margin:0;padding:16px 24px;font:14px/1.5 -apple-system,&quot;Segoe UI&quot;,system-ui,sans-serif;color:#1a1f2c;} img{max-width:100%;height:auto}&lt;/style&gt;
-&lt;html&gt;&lt;body&gt;body with &amp;lt;tags&gt; &amp; &quot;quotes&quot; and unicode: cafeé ☃&lt;br/&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
-
+&lt;html&gt;&lt;body&gt;&lt;p&gt;Logo: &lt;img src=&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==&quot;&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
+<details class="atts" open><summary>2 attachments</summary><ul><li><a class="name" href="inlook://save/0">logo.png</a> <span class="size">67 B — click to save</span></li><li><a class="name" href="inlook://open/1">Nested subject</a> <span class="size">email message — click to open</span></li></ul></details>
 <footer>
-  <span class="path" title="hostile-headers.eml">hostile-headers.eml</span>
+  <span class="path" title="cid-and-nested.msg">cid-and-nested.msg</span>
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
 </body>

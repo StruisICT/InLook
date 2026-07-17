@@ -97,7 +97,7 @@ fn print_help() {
 
 fn open_viewer(path: PathBuf) -> ExitCode {
     let bytes = match read_eml(&path) {
-        Ok(b) => b,
+        Ok(b) => std::sync::Arc::new(b),
         Err(e) => {
             show_error(&format!("Cannot open {}:\n{e}", path.display()));
             return ExitCode::FAILURE;
@@ -136,9 +136,11 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     // a per-user, writable folder instead. `web_context` must outlive `build()`;
     // it lives until the (diverging) event loop, so it is never dropped early.
     let mut web_context = wry::WebContext::new(webview_data_dir());
+    let nav_bytes = bytes.clone();
     let _webview = match WebViewBuilder::new(&window)
         .with_web_context(&mut web_context)
         .with_html(html)
+        .with_navigation_handler(move |url| handle_navigation(&url, &nav_bytes))
         .build()
     {
         Ok(v) => v,
@@ -228,6 +230,107 @@ fn maybe_offer_default(file: &Path) {
         MessageDialogResult::No => registry::suppress_default_prompt(),
         // Cancel / Esc / closed: offer again next time.
         _ => {}
+    }
+}
+
+/// Decide whether the WebView may navigate to `url`, and intercept the
+/// attachment action links the renderer emits. This is the whole click-
+/// handling mechanism: no script runs in the page (the CSP forbids it);
+/// clicking a link merely *attempts* a navigation, which lands here.
+fn handle_navigation(url: &str, bytes: &[u8]) -> bool {
+    if let Some(idx) = url.strip_prefix("inlook://save/") {
+        save_attachment(bytes, idx);
+        return false;
+    }
+    if let Some(idx) = url.strip_prefix("inlook://open/") {
+        open_nested_message(bytes, idx);
+        return false;
+    }
+    // Allow only the WebView's own initial content load. Everything else —
+    // any link an email might smuggle into scope — is blocked.
+    url.starts_with("about:") || url.starts_with("data:") || url == "null" || url.is_empty()
+}
+
+/// Save-As for a clicked attachment. Always a dialog, never auto-open —
+/// attachments from untrusted mail must not reach ShellExecute paths.
+fn save_attachment(bytes: &[u8], idx: &str) {
+    use inlook::extract::{extract_attachment, Extracted};
+    let extracted = idx.parse().ok().and_then(|i| extract_attachment(bytes, i));
+    let Some(extracted) = extracted else {
+        show_error("Couldn't extract this attachment.");
+        return;
+    };
+    let (name, data) = match extracted {
+        Extracted::File { name, data } => (name, data),
+        Extracted::Message { name, data, is_msg } => (
+            format!("{name}.{}", if is_msg { "msg" } else { "eml" }),
+            data,
+        ),
+    };
+    let Some(dest) = rfd::FileDialog::new()
+        .set_title(format!("{APP_NAME} — save attachment"))
+        .set_file_name(sanitize_filename(&name))
+        .save_file()
+    else {
+        return; // user cancelled
+    };
+    if let Err(e) = std::fs::write(&dest, &data) {
+        show_error(&format!(
+            "Couldn't save the attachment to {}:\n{e}",
+            dest.display()
+        ));
+    }
+}
+
+/// Open an attached email in a new InLook window: write it to a per-process
+/// temp file and spawn another instance of this executable on it.
+fn open_nested_message(bytes: &[u8], idx: &str) {
+    use inlook::extract::{extract_attachment, Extracted};
+    let extracted = idx.parse().ok().and_then(|i| extract_attachment(bytes, i));
+    let Some(Extracted::Message { name, data, is_msg }) = extracted else {
+        show_error("Couldn't extract this attached message.");
+        return;
+    };
+    let dir = std::env::temp_dir().join(APP_NAME).join("nested");
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        show_error(&format!("Couldn't create a temporary folder:\n{e}"));
+        return;
+    }
+    let ext = if is_msg { "msg" } else { "eml" };
+    let file = dir.join(format!(
+        "{}-{idx}-{}.{ext}",
+        std::process::id(),
+        sanitize_filename(&name)
+    ));
+    if let Err(e) = std::fs::write(&file, &data) {
+        show_error(&format!("Couldn't write a temporary file:\n{e}"));
+        return;
+    }
+    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("inlook"));
+    if let Err(e) = std::process::Command::new(exe).arg(&file).spawn() {
+        show_error(&format!("Couldn't open the attached message:\n{e}"));
+    }
+}
+
+/// Reduce an attachment name from untrusted mail to something safe to hand a
+/// save dialog / temp path: no separators, no control characters, no leading
+/// dots, bounded length.
+fn sanitize_filename(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || " ._-()[]".contains(c) {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed: String = cleaned.trim_matches([' ', '.']).chars().take(120).collect();
+    if trimmed.is_empty() {
+        "attachment".to_string()
+    } else {
+        trimmed
     }
 }
 
