@@ -19,6 +19,14 @@ const BRAND: &str = "Free Software from Struis ICT";
 /// attempt against the parser/renderer.
 const MAX_FILE_BYTES: u64 = 50 * 1024 * 1024;
 
+/// URL the WebView loads to reach our in-memory custom-protocol handler. wry
+/// maps a custom scheme to `http://<scheme>.<host>` on Windows/Android and
+/// `<scheme>://<host>` elsewhere.
+#[cfg(any(target_os = "windows", target_os = "android"))]
+const INLOOKVIEW_URL: &str = "http://inlookview.localhost/";
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
+const INLOOKVIEW_URL: &str = "inlookview://localhost/";
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let cmd = args.get(1).map(String::as_str);
@@ -139,9 +147,29 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     // it lives until the (diverging) event loop, so it is never dropped early.
     let mut web_context = wry::WebContext::new(webview_data_dir());
     let nav_bytes = bytes.clone();
+
+    // Serve the rendered page from memory via a custom protocol instead of
+    // `with_html`. On Windows `with_html` goes through WebView2's
+    // NavigateToString, which caps the page at 2 MB — a large or image-heavy
+    // email (inlined `cid:` images are base64, +33%) exceeds it and fails to
+    // display. A custom protocol streams the response like a local server: no
+    // size limit, and the HTML stays in memory so the email body never touches
+    // disk. The CSP is also sent as an HTTP header here, so it applies at the
+    // transport layer, not only via the page's <meta> tag.
+    let doc: std::sync::Arc<[u8]> = std::sync::Arc::from(html.into_bytes().into_boxed_slice());
     let _webview = match WebViewBuilder::new(&window)
         .with_web_context(&mut web_context)
-        .with_html(html)
+        .with_custom_protocol("inlookview".to_string(), move |_request| {
+            wry::http::Response::builder()
+                .header("Content-Type", "text/html; charset=utf-8")
+                .header(
+                    "Content-Security-Policy",
+                    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';",
+                )
+                .body(std::borrow::Cow::from(doc.to_vec()))
+                .unwrap_or_else(|_| wry::http::Response::new(std::borrow::Cow::from(Vec::new())))
+        })
+        .with_url(INLOOKVIEW_URL)
         .with_navigation_handler(move |url| handle_navigation(&url, &nav_bytes))
         .build()
     {
@@ -257,9 +285,15 @@ fn handle_navigation(url: &str, bytes: &[u8]) -> bool {
         open_nested_message(bytes, idx);
         return false;
     }
-    // Allow only the WebView's own initial content load. Everything else —
-    // any link an email might smuggle into scope — is blocked.
-    url.starts_with("about:") || url.starts_with("data:") || url == "null" || url.is_empty()
+    // Allow the WebView's own document (served from our custom protocol) and
+    // its inline sub-frames. Everything else — any link an email might smuggle
+    // into scope — is blocked.
+    url.starts_with("http://inlookview.") // Windows/Android custom-protocol host
+        || url.starts_with("inlookview://") // custom-protocol host elsewhere
+        || url.starts_with("about:") // about:blank / about:srcdoc (the body iframe)
+        || url.starts_with("data:")
+        || url == "null"
+        || url.is_empty()
 }
 
 /// Save-As for a clicked attachment. Always a dialog, never auto-open —
