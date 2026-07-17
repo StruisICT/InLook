@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Hardened-runtime entitlements for the notarized build.
+    WKWebView's JavaScript engine needs JIT; without this the web view can
+    fail to render the email body under the hardened runtime. This is the
+    only entitlement InLook requests — no network, camera, files, or other
+    capabilities. (InLook opens no network connections on macOS.)
+  -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

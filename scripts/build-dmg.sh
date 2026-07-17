@@ -52,12 +52,36 @@ if [[ -f "$ICNS_OUT" ]]; then
         "$APP/Contents/Info.plist" 2>/dev/null || true
 fi
 
+# Code-sign the app with the hardened runtime when a Developer ID identity is
+# available (APPLE_SIGNING_IDENTITY set in CI). Signed inside-out: the Mach-O
+# binary first, then the bundle — no `--deep` on signing (Apple discourages it;
+# InLook has no nested frameworks anyway). Without an identity the app ships
+# unsigned exactly as before, and Gatekeeper then requires a manual bypass.
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+    ENTITLEMENTS="$ROOT/assets/macos/entitlements.plist"
+    echo "Code-signing with: $APPLE_SIGNING_IDENTITY"
+    codesign --force --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" \
+        --sign "$APPLE_SIGNING_IDENTITY" \
+        "$APP/Contents/MacOS/inlook"
+    codesign --force --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" \
+        --sign "$APPLE_SIGNING_IDENTITY" \
+        "$APP"
+    codesign --verify --deep --strict --verbose=2 "$APP"
+fi
+
 # Build the DMG. UDZO = compressed read-only.
 hdiutil create -volname "InLook ${VERSION}" \
     -srcfolder "$APP" \
     -ov \
     -format UDZO \
     "$DMG"
+
+# Sign the DMG container too (notarization + stapling happen in CI afterward).
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+    codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DMG"
+fi
 
 echo "Built: $DMG"
 ls -lh "$DMG"
