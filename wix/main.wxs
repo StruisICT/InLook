@@ -85,12 +85,11 @@
                                       TargetFile='MainExe'
                                       Argument='"%1"' />
                             </Extension>
-                            <Extension Id='oft' ContentType='application/vnd.ms-outlook'>
-                                <Verb Id='open'
-                                      Command='Open'
-                                      TargetFile='MainExe'
-                                      Argument='"%1"' />
-                            </Extension>
+                            <!-- .oft shares this ProgID and its open command, so
+                                 it carries no Verb of its own — a second Verb here
+                                 emits a duplicate shell\open\command registry row
+                                 (WiX LGHT0130) and breaks the MSI build. -->
+                            <Extension Id='oft' ContentType='application/vnd.ms-outlook' />
                         </ProgId>
                     </Component>
 
