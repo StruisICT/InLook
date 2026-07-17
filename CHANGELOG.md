@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/StruisICT/InLook/compare/v0.8.0...v0.9.0) (2026-07-17)
+
+
+### Features
+
+* opt-in update notification (Windows), off by default ([#52](https://github.com/StruisICT/InLook/issues/52)) ([d12597b](https://github.com/StruisICT/InLook/commit/d12597b4d286fafe446f92cfaff671f8280c54bd))
+
+
+### Bug Fixes
+
+* **wix:** drop duplicate .oft verb that broke the MSI build ([#54](https://github.com/StruisICT/InLook/issues/54)) ([60bec90](https://github.com/StruisICT/InLook/commit/60bec9064262ab602335583a917fa0c055db0feb))
+
 ## [0.8.0](https://github.com/StruisICT/InLook/compare/v0.7.0...v0.8.0) (2026-07-17)
 
 
