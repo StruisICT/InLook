@@ -3,3 +3,5 @@
 tests/fixtures/** -text
 tests/snapshots/** -text
 test/*.eml -text
+# Fuzzer crash inputs are byte-exact binaries.
+tests/crashes/** -text
