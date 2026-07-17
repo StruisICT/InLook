@@ -3,8 +3,22 @@ use std::path::Path;
 use windows_registry::{CURRENT_USER, LOCAL_MACHINE};
 
 const PROGID: &str = "StruisICT.InLook";
-const DESCRIPTION: &str = "EML Email Message";
+const PROGID_MSG: &str = "StruisICT.InLook.msg";
 const FRIENDLY: &str = "InLook";
+
+/// (ProgID, Explorer type description) for every ProgID InLook owns.
+const PROGIDS: [(&str, &str); 2] = [
+    (PROGID, "EML Email Message"),
+    (PROGID_MSG, "Outlook Email Message"),
+];
+
+/// (extension, ProgID, content type) for every file type InLook handles.
+/// `.oft` (Outlook template) shares the `.msg` ProgID — same container format.
+const ASSOCIATIONS: [(&str, &str, &str); 3] = [
+    (".eml", PROGID, "message/rfc822"),
+    (".msg", PROGID_MSG, "application/vnd.ms-outlook"),
+    (".oft", PROGID_MSG, "application/vnd.ms-outlook"),
+];
 /// Name under `HKLM\SOFTWARE\RegisteredApplications` — this is the app name
 /// Windows Settings shows on the Default Apps page, and the value the
 /// `ms-settings:defaultapps?registeredAppMachine=` deep link matches on.
@@ -15,7 +29,35 @@ const CAPABILITIES_PATH: &str = "Software\\StruisICT\\InLook\\Capabilities";
 /// flag for the default-handler prompt).
 const SETTINGS_KEY: &str = "Software\\StruisICT\\InLook";
 
-/// Register this executable as the handler for .eml files in HKLM.
+/// Write one ProgID (type description, icon, open command) under `classes`.
+/// Shared by the HKLM and HKCU registration paths.
+fn write_progid(
+    classes: &windows_registry::Key,
+    progid: &str,
+    description: &str,
+    exe_str: &str,
+) -> Result<(), String> {
+    let key = classes
+        .create(progid)
+        .map_err(|e| format!("create ProgID {progid}: {e}"))?;
+    key.set_string("", description)
+        .map_err(|e| format!("set ProgID default: {e}"))?;
+    key.set_string("FriendlyTypeName", FRIENDLY)
+        .map_err(|e| format!("set FriendlyTypeName: {e}"))?;
+    let icon = key
+        .create("DefaultIcon")
+        .map_err(|e| format!("create DefaultIcon: {e}"))?;
+    icon.set_string("", &format!("\"{exe_str}\",0"))
+        .map_err(|e| format!("set DefaultIcon: {e}"))?;
+    let cmd = key
+        .create("shell\\open\\command")
+        .map_err(|e| format!("create shell\\open\\command: {e}"))?;
+    cmd.set_string("", &format!("\"{exe_str}\" \"%1\""))
+        .map_err(|e| format!("set open command: {e}"))?;
+    Ok(())
+}
+
+/// Register this executable as the handler for .eml/.msg/.oft files in HKLM.
 /// Requires the process to run elevated.
 pub fn register() -> Result<(), String> {
     let exe = env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
@@ -25,44 +67,26 @@ pub fn register() -> Result<(), String> {
         .create("Software\\Classes")
         .map_err(|e| format!("open Software\\Classes: {e}"))?;
 
-    // ProgID
-    let progid = classes
-        .create(PROGID)
-        .map_err(|e| format!("create ProgID: {e}"))?;
-    progid
-        .set_string("", DESCRIPTION)
-        .map_err(|e| format!("set ProgID default: {e}"))?;
-    progid
-        .set_string("FriendlyTypeName", FRIENDLY)
-        .map_err(|e| format!("set FriendlyTypeName: {e}"))?;
+    for (progid, description) in PROGIDS {
+        write_progid(&classes, progid, description, &exe_str)?;
+    }
 
-    let icon = progid
-        .create("DefaultIcon")
-        .map_err(|e| format!("create DefaultIcon: {e}"))?;
-    icon.set_string("", &format!("\"{exe_str}\",0"))
-        .map_err(|e| format!("set DefaultIcon: {e}"))?;
-
-    let cmd = progid
-        .create("shell\\open\\command")
-        .map_err(|e| format!("create shell\\open\\command: {e}"))?;
-    cmd.set_string("", &format!("\"{exe_str}\" \"%1\""))
-        .map_err(|e| format!("set open command: {e}"))?;
-
-    // .eml extension → ProgID
-    let ext = classes
-        .create(".eml")
-        .map_err(|e| format!("create .eml: {e}"))?;
-    ext.set_string("", PROGID)
-        .map_err(|e| format!("set .eml default: {e}"))?;
-    ext.set_string("Content Type", "message/rfc822")
-        .map_err(|e| format!("set content type: {e}"))?;
-
-    let owpids = ext
-        .create("OpenWithProgids")
-        .map_err(|e| format!("create OpenWithProgids: {e}"))?;
-    owpids
-        .set_string(PROGID, "")
-        .map_err(|e| format!("set OpenWithProgids entry: {e}"))?;
+    // extension → ProgID
+    for (ext_name, progid, content_type) in ASSOCIATIONS {
+        let ext = classes
+            .create(ext_name)
+            .map_err(|e| format!("create {ext_name}: {e}"))?;
+        ext.set_string("", progid)
+            .map_err(|e| format!("set {ext_name} default: {e}"))?;
+        ext.set_string("Content Type", content_type)
+            .map_err(|e| format!("set {ext_name} content type: {e}"))?;
+        let owpids = ext
+            .create("OpenWithProgids")
+            .map_err(|e| format!("create OpenWithProgids: {e}"))?;
+        owpids
+            .set_string(progid, "")
+            .map_err(|e| format!("set OpenWithProgids entry: {e}"))?;
+    }
 
     // Default Programs registration. Without this, InLook never appears as an
     // *application* on the Settings ▸ Default apps page (only as a bare ProgID
@@ -76,7 +100,7 @@ pub fn register() -> Result<(), String> {
         .map_err(|e| format!("set ApplicationName: {e}"))?;
     caps.set_string(
         "ApplicationDescription",
-        "Fast, safe .eml email viewer — Free Software from Struis ICT",
+        "Fast, safe viewer for .eml and Outlook .msg email files — Free Software from Struis ICT",
     )
     .map_err(|e| format!("set ApplicationDescription: {e}"))?;
     caps.set_string("ApplicationIcon", &format!("\"{exe_str}\",0"))
@@ -84,9 +108,11 @@ pub fn register() -> Result<(), String> {
     let assoc = caps
         .create("FileAssociations")
         .map_err(|e| format!("create FileAssociations: {e}"))?;
-    assoc
-        .set_string(".eml", PROGID)
-        .map_err(|e| format!("set FileAssociations .eml: {e}"))?;
+    for (ext_name, progid, _) in ASSOCIATIONS {
+        assoc
+            .set_string(ext_name, progid)
+            .map_err(|e| format!("set FileAssociations {ext_name}: {e}"))?;
+    }
     let regapps = LOCAL_MACHINE
         .create("Software\\RegisteredApplications")
         .map_err(|e| format!("open RegisteredApplications: {e}"))?;
@@ -130,27 +156,31 @@ pub fn open_default_apps_settings() {
     }
 }
 
-/// Remove our ProgID and our entries from .eml. Leaves any unrelated handlers
-/// (e.g. Outlook) intact — only clears .eml's default if it currently points
-/// at us.
+/// Remove our ProgIDs and our entries from the extensions we claim. Leaves any
+/// unrelated handlers (e.g. Outlook) intact — only clears an extension's
+/// default if it currently points at us.
 pub fn unregister() -> Result<(), String> {
     let classes = LOCAL_MACHINE
         .create("Software\\Classes")
         .map_err(|e| format!("open Software\\Classes: {e}"))?;
 
-    if let Ok(ext) = classes.open(".eml") {
-        // Only clear the default if it's our ProgID
-        if let Ok(current) = ext.get_string("") {
-            if current == PROGID {
-                let _ = ext.set_string("", "");
+    for (ext_name, progid, _) in ASSOCIATIONS {
+        if let Ok(ext) = classes.open(ext_name) {
+            // Only clear the default if it's our ProgID
+            if let Ok(current) = ext.get_string("") {
+                if current == progid {
+                    let _ = ext.set_string("", "");
+                }
             }
-        }
-        if let Ok(owpids) = ext.open("OpenWithProgids") {
-            let _ = owpids.remove_value(PROGID);
+            if let Ok(owpids) = ext.open("OpenWithProgids") {
+                let _ = owpids.remove_value(progid);
+            }
         }
     }
 
-    let _ = classes.remove_tree(PROGID);
+    for (progid, _) in PROGIDS {
+        let _ = classes.remove_tree(progid);
+    }
 
     // Default Programs registration
     if let Ok(regapps) = LOCAL_MACHINE.create("Software\\RegisteredApplications") {
@@ -162,12 +192,12 @@ pub fn unregister() -> Result<(), String> {
     Ok(())
 }
 
-/// Register this executable as an *available* handler for `.eml` in the current
-/// user's hive (`HKCU\Software\Classes`). Needs no elevation. Unlike
-/// [`register`], this does not claim the default association — on Windows 10/11
-/// only the user can set the default (the per-user `UserChoice` is hash
-/// protected). It just makes InLook show up as a proper choice, with its icon
-/// and friendly name, in the "Open with" dialog.
+/// Register this executable as an *available* handler for our extensions in
+/// the current user's hive (`HKCU\Software\Classes`). Needs no elevation.
+/// Unlike [`register`], this does not claim the default association — on
+/// Windows 10/11 only the user can set the default (the per-user `UserChoice`
+/// is hash protected). It just makes InLook show up as a proper choice, with
+/// its icon and friendly name, in the "Open with" dialog.
 pub fn register_per_user() -> Result<(), String> {
     let exe = env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
     let exe_str = exe.to_string_lossy().into_owned();
@@ -176,49 +206,35 @@ pub fn register_per_user() -> Result<(), String> {
         .create("Software\\Classes")
         .map_err(|e| format!("open HKCU Software\\Classes: {e}"))?;
 
-    let progid = classes
-        .create(PROGID)
-        .map_err(|e| format!("create ProgID: {e}"))?;
-    progid
-        .set_string("", DESCRIPTION)
-        .map_err(|e| format!("set ProgID default: {e}"))?;
-    progid
-        .set_string("FriendlyTypeName", FRIENDLY)
-        .map_err(|e| format!("set FriendlyTypeName: {e}"))?;
+    for (progid, description) in PROGIDS {
+        write_progid(&classes, progid, description, &exe_str)?;
+    }
 
-    let icon = progid
-        .create("DefaultIcon")
-        .map_err(|e| format!("create DefaultIcon: {e}"))?;
-    icon.set_string("", &format!("\"{exe_str}\",0"))
-        .map_err(|e| format!("set DefaultIcon: {e}"))?;
-
-    let cmd = progid
-        .create("shell\\open\\command")
-        .map_err(|e| format!("create shell\\open\\command: {e}"))?;
-    cmd.set_string("", &format!("\"{exe_str}\" \"%1\""))
-        .map_err(|e| format!("set open command: {e}"))?;
-
-    let ext = classes
-        .create(".eml")
-        .map_err(|e| format!("create .eml: {e}"))?;
-    let owpids = ext
-        .create("OpenWithProgids")
-        .map_err(|e| format!("create OpenWithProgids: {e}"))?;
-    owpids
-        .set_string(PROGID, "")
-        .map_err(|e| format!("set OpenWithProgids entry: {e}"))?;
+    for (ext_name, progid, _) in ASSOCIATIONS {
+        let ext = classes
+            .create(ext_name)
+            .map_err(|e| format!("create {ext_name}: {e}"))?;
+        let owpids = ext
+            .create("OpenWithProgids")
+            .map_err(|e| format!("create OpenWithProgids: {e}"))?;
+        owpids
+            .set_string(progid, "")
+            .map_err(|e| format!("set OpenWithProgids entry: {e}"))?;
+    }
 
     notify_shell_assoc_changed();
     Ok(())
 }
 
-/// Whether InLook is already the user's default handler for `.eml`, according to
-/// the shell's hash-protected `UserChoice`.
-pub fn is_default_eml_handler() -> bool {
+/// Whether InLook is already the user's default handler for `ext` (".eml",
+/// ".msg", or ".oft"), according to the shell's hash-protected `UserChoice`.
+pub fn is_default_handler(ext: &str) -> bool {
     CURRENT_USER
-        .open("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.eml\\UserChoice")
+        .open(format!(
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\{ext}\\UserChoice"
+        ))
         .and_then(|k| k.get_string("ProgId"))
-        .map(|p| p == PROGID)
+        .map(|p| p == PROGID || p == PROGID_MSG)
         .unwrap_or(false)
 }
 

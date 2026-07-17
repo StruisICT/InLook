@@ -1,8 +1,10 @@
-//! Fuzz the security-critical EML → HTML path with arbitrary bytes.
+//! Fuzz the security-critical message → HTML path with arbitrary bytes.
 //!
-//! `render_eml_to_html` is the single funnel every untrusted input goes
-//! through, so it must never panic, hang, or emit an executable tag no matter
-//! what bytes it is fed. Run locally (Linux/macOS, nightly) with:
+//! `render_file_to_html` is the single funnel every untrusted input goes
+//! through — bytes with the CFB magic take the Outlook `.msg` (cfb/MAPI)
+//! path, everything else the `.eml` (mail-parser) path — so it must never
+//! panic, hang, or emit an executable tag no matter what bytes it is fed.
+//! Run locally (Linux/macOS, nightly) with:
 //!
 //! ```sh
 //! cargo +nightly fuzz run render_eml -- -max_total_time=60
@@ -13,7 +15,7 @@ use libfuzzer_sys::fuzz_target;
 use std::path::Path;
 
 fuzz_target!(|data: &[u8]| {
-    let html = inlook::render::render_eml_to_html(data, Path::new("fuzz.eml"));
+    let html = inlook::render::render_file_to_html(data, Path::new("fuzz.eml"));
 
     // Invariants, not just crash-freedom:
     // 1. The renderer always produces a page.

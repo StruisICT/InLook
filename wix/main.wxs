@@ -60,14 +60,32 @@
                                       Advertise='yes' />
                         </File>
 
-                        <!-- .eml file association — written declaratively so
-                             uninstall removes it cleanly. -->
+                        <!-- File associations — written declaratively so
+                             uninstall removes them cleanly. -->
                         <ProgId Id='StruisICT.InLook'
                                 Description='EML Email Message'
                                 Icon='MainExe'
                                 IconIndex='0'
                                 Advertise='no'>
                             <Extension Id='eml' ContentType='message/rfc822'>
+                                <Verb Id='open'
+                                      Command='Open'
+                                      TargetFile='MainExe'
+                                      Argument='"%1"' />
+                            </Extension>
+                        </ProgId>
+                        <ProgId Id='StruisICT.InLook.msg'
+                                Description='Outlook Email Message'
+                                Icon='MainExe'
+                                IconIndex='0'
+                                Advertise='no'>
+                            <Extension Id='msg' ContentType='application/vnd.ms-outlook'>
+                                <Verb Id='open'
+                                      Command='Open'
+                                      TargetFile='MainExe'
+                                      Argument='"%1"' />
+                            </Extension>
+                            <Extension Id='oft' ContentType='application/vnd.ms-outlook'>
                                 <Verb Id='open'
                                       Command='Open'
                                       TargetFile='MainExe'
@@ -84,7 +102,7 @@
 
         <Feature Id='Complete'
                  Title='InLook'
-                 Description='Viewer executable, file association for .eml, and Start Menu shortcut.'
+                 Description='Viewer executable, file associations for .eml/.msg/.oft, and Start Menu shortcut.'
                  Display='expand'
                  Level='1'
                  ConfigurableDirectory='APPLICATIONFOLDER'>
