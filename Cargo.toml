@@ -22,6 +22,7 @@ html-escape = "0.2"
 windows-registry = "0.2"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
+    "Win32_Networking_WinHttp",
     "Win32_Security",
     "Win32_System_Console",
     "Win32_System_Threading",

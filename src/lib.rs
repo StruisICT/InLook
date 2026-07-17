@@ -14,6 +14,7 @@
 pub mod extract;
 pub mod msg;
 pub mod render;
+pub mod version;
 
 /// One attachment as shown in the viewer. `index` positions map 1:1 onto
 /// [`extract::extract_attachment`], for both formats.

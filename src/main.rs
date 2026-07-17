@@ -4,6 +4,8 @@
 
 #[cfg(windows)]
 mod registry;
+#[cfg(windows)]
+mod update;
 
 use inlook::render;
 use std::path::{Path, PathBuf};
@@ -170,7 +172,12 @@ fn open_viewer(path: PathBuf) -> ExitCode {
             #[cfg(windows)]
             Event::RedrawEventsCleared if default_prompt_pending => {
                 default_prompt_pending = false;
-                maybe_offer_default(&prompt_path);
+                // If the default-handler offer is shown this run, defer the
+                // update-check consent prompt to the next launch so the user
+                // never faces two dialogs at once. An already-opted-in check
+                // still runs regardless.
+                let showed_default = maybe_offer_default(&prompt_path);
+                update::maybe_run(!showed_default);
             }
             _ => {}
         }
@@ -182,8 +189,11 @@ fn open_viewer(path: PathBuf) -> ExitCode {
 /// an app set the default silently (the per-user choice is hash protected), so
 /// on "Set as default" we register InLook as a handler and open the OS
 /// "Open with" chooser, where the user confirms via "Always use this app".
+///
+/// Returns whether a dialog was shown, so the caller can avoid stacking the
+/// update-check consent prompt on top of it the same run.
 #[cfg(windows)]
-fn maybe_offer_default(file: &Path) {
+fn maybe_offer_default(file: &Path) -> bool {
     // Only for extensions InLook actually claims — files opened via the picker
     // with unexpected names shouldn't trigger the offer.
     let ext = match file
@@ -192,10 +202,10 @@ fn maybe_offer_default(file: &Path) {
         .map(|e| e.to_ascii_lowercase())
     {
         Some(e) if matches!(e.as_str(), "eml" | "msg" | "oft") => format!(".{e}"),
-        _ => return,
+        _ => return false,
     };
     if registry::is_default_handler(&ext) || registry::default_prompt_suppressed() {
-        return;
+        return false;
     }
     // Make InLook a registered choice first (no elevation needed).
     let _ = registry::register_per_user();
@@ -231,6 +241,7 @@ fn maybe_offer_default(file: &Path) {
         // Cancel / Esc / closed: offer again next time.
         _ => {}
     }
+    true
 }
 
 /// Decide whether the WebView may navigate to `url`, and intercept the

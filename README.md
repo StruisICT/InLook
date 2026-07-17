@@ -104,10 +104,19 @@ release after manual approval.
 
 ### Privacy policy
 
-InLook does not transfer any information to other networked systems: it opens
-no network connections, has no telemetry, and phones nothing home. Email
-content stays on your machine; remote content inside emails is never loaded
-(blocked by CSP + iframe sandbox).
+InLook is **offline by default**: it has no telemetry and phones nothing home.
+Email content stays on your machine, and remote content inside emails is never
+loaded (blocked by CSP + iframe sandbox).
+
+The **only** time InLook makes a network connection is if you explicitly opt in
+to the update check (Windows only). On first run it asks once whether to check
+for updates; if you say yes, it occasionally contacts `github.com` over HTTPS —
+using Windows' own secure connection, with no third-party HTTP or TLS code — to
+read the latest release tag and, at most once per version, tell you a newer
+version exists. It never downloads or installs anything, and sends no
+information about you or your email. If you say no (or never opt in), InLook
+makes no network connection at all. You can change your choice anytime via the
+registry value `HKCU\Software\StruisICT\InLook\UpdateCheckEnabled` (`0`/`1`).
 
 ## License
 
