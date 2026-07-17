@@ -33,6 +33,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      id-token: write # SLSA build-provenance attestation
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -123,6 +125,15 @@ jobs:
           cp signed/inlook.exe target/release/inlook.exe
           cp signed/inlook.msi "target/wix/${{ steps.stage.outputs.msi_name }}"
 
+      # SLSA build provenance: cryptographically bind these binaries to this
+      # repo + workflow run. Verify with: gh attestation verify <file> --repo StruisICT/InLook
+      - name: Attest Windows artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            target/wix/inlook-*.msi
+            target/release/inlook.exe
+
       - name: Attach Windows artifacts to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -138,6 +149,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # SLSA build-provenance attestation
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -179,6 +192,13 @@ jobs:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: dist/*.AppImage
 
+      - name: Attest Linux artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            target/debian/*.deb
+            dist/*.AppImage
+
   build-macos:
     name: Build macOS .dmg (universal)
     needs: release-please
@@ -186,6 +206,8 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+      id-token: write # SLSA build-provenance attestation
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -212,8 +234,43 @@ jobs:
       - name: Build .app bundle and .dmg
         run: bash scripts/build-dmg.sh ${{ needs.release-please.outputs.tag_name }}
 
+      - name: Attest macOS artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.dmg
+
       - name: Attach macOS artifacts to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: dist/*.dmg
+
+  sbom:
+    name: SBOM (CycloneDX)
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --locked
+      - name: Generate CycloneDX SBOM
+        run: |
+          # --target all resolves every platform's dependencies, so the SBOM
+          # covers the Windows-only crates too, not just the host's graph.
+          cargo cyclonedx --format json --target all --spec-version 1.5
+          cp inlook.cdx.json "inlook-${{ needs.release-please.outputs.tag_name }}-sbom.cdx.json"
+      - name: Attest SBOM
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: inlook-*-sbom.cdx.json
+      - name: Attach SBOM to GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: inlook-*-sbom.cdx.json
