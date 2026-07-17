@@ -2,7 +2,7 @@
 name = "inlook"
 version = "0.9.0"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.88"
 description = "InLook — fast viewer for EML and Outlook MSG email files. Free Software from Struis ICT."
 authors = ["Struis ICT"]
 license = "MIT OR Apache-2.0"

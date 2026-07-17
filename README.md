@@ -61,7 +61,7 @@ Settings on InLook's Default Apps page to finish with one click.
 
 ## Build from source
 
-Requires a recent stable Rust toolchain (built with 1.95; MSRV is **1.74**).
+Requires a recent stable Rust toolchain (built with 1.95; MSRV is **1.88**, verified in CI — the mail-parser and icu dependencies pull the floor up).
 
 ```sh
 cargo build --release

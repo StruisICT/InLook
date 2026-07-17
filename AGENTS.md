@@ -13,7 +13,7 @@ opens one email file and renders headers + body + attachment list in a native
 window. It is intentionally a *viewer*, not a mail client: no accounts, no
 network, no sending.
 
-- **Language:** Rust (edition 2021, MSRV **1.74**, developed on 1.95).
+- **Language:** Rust (edition 2021, MSRV **1.88**, developed on 1.95).
 - **Crate name / binary:** `inlook`.
 - **Canonical repo:** <https://github.com/StruisICT/InLook> (`origin`).
 - **License:** `MIT OR Apache-2.0`.
