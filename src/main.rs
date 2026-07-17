@@ -180,13 +180,10 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         }
     };
 
-    // On Windows, offer once (after the window has painted) to make InLook the
-    // default .eml viewer. Done inside the loop so the email is visible behind
-    // the prompt rather than a blank window.
+    // On Windows, run the opt-in update check once after the window has
+    // painted, so the email is visible behind any first-run consent prompt.
     #[cfg(windows)]
-    let prompt_path = path.clone();
-    #[cfg(windows)]
-    let mut default_prompt_pending = true;
+    let mut update_check_pending = true;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -198,78 +195,13 @@ fn open_viewer(path: PathBuf) -> ExitCode {
                 *control_flow = ControlFlow::Exit;
             }
             #[cfg(windows)]
-            Event::RedrawEventsCleared if default_prompt_pending => {
-                default_prompt_pending = false;
-                // If the default-handler offer is shown this run, defer the
-                // update-check consent prompt to the next launch so the user
-                // never faces two dialogs at once. An already-opted-in check
-                // still runs regardless.
-                let showed_default = maybe_offer_default(&prompt_path);
-                update::maybe_run(!showed_default);
+            Event::RedrawEventsCleared if update_check_pending => {
+                update_check_pending = false;
+                update::maybe_run(true);
             }
             _ => {}
         }
     });
-}
-
-/// Offer, at most once and only if InLook isn't already the default, to make
-/// it the default viewer for the opened file's type. Windows 10/11 won't let
-/// an app set the default silently (the per-user choice is hash protected), so
-/// on "Set as default" we register InLook as a handler and open the OS
-/// "Open with" chooser, where the user confirms via "Always use this app".
-///
-/// Returns whether a dialog was shown, so the caller can avoid stacking the
-/// update-check consent prompt on top of it the same run.
-#[cfg(windows)]
-fn maybe_offer_default(file: &Path) -> bool {
-    // Only for extensions InLook actually claims — files opened via the picker
-    // with unexpected names shouldn't trigger the offer.
-    let ext = match file
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-    {
-        Some(e) if matches!(e.as_str(), "eml" | "msg" | "oft") => format!(".{e}"),
-        _ => return false,
-    };
-    if registry::is_default_handler(&ext) || registry::default_prompt_suppressed() {
-        return false;
-    }
-    // Make InLook a registered choice first (no elevation needed).
-    let _ = registry::register_per_user();
-
-    use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
-    // Standard Yes/No/Cancel, not custom-labelled buttons: rfd only renders
-    // custom button text (and returns `Custom(label)`) on Windows with the
-    // `common-controls-v6` feature, which we don't enable. Without it the
-    // dialog falls back to a plain Yes/No/Cancel message box, so we map those
-    // three results and spell out what each does in the message body. Cancel /
-    // Esc is the safe default (offer again next time).
-    let result = MessageDialog::new()
-        .set_level(MessageLevel::Info)
-        .set_title(APP_NAME)
-        .set_description(format!(
-            "Make InLook your default app for {ext} email files?\n\n\
-             \u{2022} Yes \u{2014} pick InLook (tick \"Always\") in the Windows dialog\n\
-             \u{2022} No \u{2014} don't ask again\n\
-             \u{2022} Cancel \u{2014} not now",
-        ))
-        .set_buttons(MessageButtons::YesNoCancel)
-        .show();
-
-    match result {
-        MessageDialogResult::Yes => {
-            if let Err(e) = registry::open_with_dialog(file) {
-                show_error(&format!(
-                    "Couldn't open the Windows \"Open with\" dialog:\n{e}"
-                ));
-            }
-        }
-        MessageDialogResult::No => registry::suppress_default_prompt(),
-        // Cancel / Esc / closed: offer again next time.
-        _ => {}
-    }
-    true
 }
 
 /// Decide whether the WebView may navigate to `url`, and intercept the

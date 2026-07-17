@@ -1,5 +1,4 @@
 use std::env;
-use std::path::Path;
 use windows_registry::{CURRENT_USER, LOCAL_MACHINE};
 
 const PROGID: &str = "StruisICT.InLook";
@@ -25,8 +24,8 @@ const ASSOCIATIONS: [(&str, &str, &str); 3] = [
 const REGISTERED_APP: &str = "InLook";
 const CAPABILITIES_PATH: &str = "Software\\StruisICT\\InLook\\Capabilities";
 
-/// Where we keep InLook's own per-user settings (e.g. the "don't ask again"
-/// flag for the default-handler prompt).
+/// Where we keep InLook's own per-user settings (the opt-in update-check
+/// consent and last-notified version).
 const SETTINGS_KEY: &str = "Software\\StruisICT\\InLook";
 
 /// Write one ProgID (type description, icon, open command) under `classes`.
@@ -192,68 +191,6 @@ pub fn unregister() -> Result<(), String> {
     Ok(())
 }
 
-/// Register this executable as an *available* handler for our extensions in
-/// the current user's hive (`HKCU\Software\Classes`). Needs no elevation.
-/// Unlike [`register`], this does not claim the default association — on
-/// Windows 10/11 only the user can set the default (the per-user `UserChoice`
-/// is hash protected). It just makes InLook show up as a proper choice, with
-/// its icon and friendly name, in the "Open with" dialog.
-pub fn register_per_user() -> Result<(), String> {
-    let exe = env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
-    let exe_str = exe.to_string_lossy().into_owned();
-
-    let classes = CURRENT_USER
-        .create("Software\\Classes")
-        .map_err(|e| format!("open HKCU Software\\Classes: {e}"))?;
-
-    for (progid, description) in PROGIDS {
-        write_progid(&classes, progid, description, &exe_str)?;
-    }
-
-    for (ext_name, progid, _) in ASSOCIATIONS {
-        let ext = classes
-            .create(ext_name)
-            .map_err(|e| format!("create {ext_name}: {e}"))?;
-        let owpids = ext
-            .create("OpenWithProgids")
-            .map_err(|e| format!("create OpenWithProgids: {e}"))?;
-        owpids
-            .set_string(progid, "")
-            .map_err(|e| format!("set OpenWithProgids entry: {e}"))?;
-    }
-
-    notify_shell_assoc_changed();
-    Ok(())
-}
-
-/// Whether InLook is already the user's default handler for `ext` (".eml",
-/// ".msg", or ".oft"), according to the shell's hash-protected `UserChoice`.
-pub fn is_default_handler(ext: &str) -> bool {
-    CURRENT_USER
-        .open(format!(
-            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\{ext}\\UserChoice"
-        ))
-        .and_then(|k| k.get_string("ProgId"))
-        .map(|p| p == PROGID || p == PROGID_MSG)
-        .unwrap_or(false)
-}
-
-/// Whether the user has told us to stop offering to set InLook as the default.
-pub fn default_prompt_suppressed() -> bool {
-    CURRENT_USER
-        .open(SETTINGS_KEY)
-        .and_then(|k| k.get_string("SkipDefaultPrompt"))
-        .map(|v| v == "1")
-        .unwrap_or(false)
-}
-
-/// Remember that the user doesn't want to be asked again. Best-effort.
-pub fn suppress_default_prompt() {
-    if let Ok(k) = CURRENT_USER.create(SETTINGS_KEY) {
-        let _ = k.set_string("SkipDefaultPrompt", "1");
-    }
-}
-
 // --- Optional update check (opt-in, off by default) ---
 //
 // The whole feature is gated on explicit consent stored here. Until the user
@@ -299,37 +236,6 @@ pub fn last_notified_version() -> Option<String> {
 pub fn set_last_notified_version(version: &str) {
     if let Ok(k) = CURRENT_USER.create(SETTINGS_KEY) {
         let _ = k.set_string("LastNotifiedVersion", version);
-    }
-}
-
-/// Open the Windows "Open with" chooser for `file` with the "Always use this
-/// app" option enabled, letting the user set InLook as the default through the
-/// OS's own sanctioned path. We omit `OAIF_EXEC` on purpose so choosing an app
-/// here doesn't launch a second viewer window.
-pub fn open_with_dialog(file: &Path) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows::core::PCWSTR;
-    use windows::Win32::UI::Shell::{
-        SHOpenWithDialog, OAIF_ALLOW_REGISTRATION, OAIF_REGISTER_EXT, OPENASINFO,
-    };
-
-    let wide: Vec<u16> = file
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-    let info = OPENASINFO {
-        pcszFile: PCWSTR(wide.as_ptr()),
-        pcszClass: PCWSTR::null(),
-        oaifInFlags: OAIF_ALLOW_REGISTRATION | OAIF_REGISTER_EXT,
-    };
-
-    // Reason: SHOpenWithDialog is the documented way to show the shell's
-    // "Open with" chooser. It takes a raw pointer to OPENASINFO and an optional
-    // parent HWND (none — the dialog stands alone). `wide` must outlive the call.
-    #[allow(unsafe_code)]
-    unsafe {
-        SHOpenWithDialog(None, &info).map_err(|e| format!("SHOpenWithDialog: {e}"))
     }
 }
 
