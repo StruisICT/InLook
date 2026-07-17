@@ -17,7 +17,7 @@
 
         <Package Id='*'
                  Keywords='InLook,EML viewer,email,Struis ICT'
-                 Description='InLook $(var.Version) — fast EML viewer'
+                 Description='InLook $(var.Version) — fast EML/MSG viewer'
                  Manufacturer='Struis ICT'
                  InstallerVersion='450'
                  Languages='1033'
@@ -53,7 +53,7 @@
                             <Shortcut Id='StartMenuShortcut'
                                       Directory='ProgramMenuFolder'
                                       Name='InLook'
-                                      Description='Open .eml email files'
+                                      Description='Open .eml, .msg and .oft email files'
                                       WorkingDirectory='APPLICATIONFOLDER'
                                       Icon='ProductIcon.ico'
                                       IconIndex='0'
