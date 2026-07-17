@@ -43,9 +43,9 @@ fn main() -> ExitCode {
         #[cfg(windows)]
         Some("register") => match registry::register() {
             Ok(()) => {
-                println!("{APP_NAME} is registered as an .eml handler.");
+                println!("{APP_NAME} is registered as a handler for .eml, .msg, and .oft files.");
                 println!("Opening Windows Settings on the {APP_NAME} page — click \"Set default\"");
-                println!("(Windows 11) or pick {APP_NAME} for .eml (Windows 10) to finish.");
+                println!("(Windows 11) or pick {APP_NAME} per file type (Windows 10) to finish.");
                 registry::open_default_apps_settings();
                 ExitCode::SUCCESS
             }
@@ -74,8 +74,8 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         None => match rfd::FileDialog::new()
-            .set_title(format!("{APP_NAME} — open .eml file"))
-            .add_filter("Email message", &["eml"])
+            .set_title(format!("{APP_NAME} — open email file"))
+            .add_filter("Email message", &["eml", "msg", "oft"])
             .pick_file()
         {
             Some(p) => open_viewer(p),
@@ -88,10 +88,10 @@ fn print_help() {
     println!("{APP_NAME} {} — {BRAND}", env!("CARGO_PKG_VERSION"));
     println!();
     println!("Usage:");
-    println!("  inlook <file.eml>     Open an EML file in the viewer window");
+    println!("  inlook <file>         Open an .eml / .msg / .oft email file");
     println!("  inlook                Open a file picker");
-    println!("  inlook register       Associate .eml with this viewer (admin)");
-    println!("  inlook unregister     Remove the .eml association (admin)");
+    println!("  inlook register       Associate .eml/.msg/.oft with this viewer (admin)");
+    println!("  inlook unregister     Remove the file associations (admin)");
     println!("  inlook --version");
 }
 
@@ -104,7 +104,7 @@ fn open_viewer(path: PathBuf) -> ExitCode {
         }
     };
 
-    let html = render::render_eml_to_html(&bytes, &path);
+    let html = render::render_file_to_html(&bytes, &path);
 
     use tao::{
         event::{Event, WindowEvent},
@@ -175,14 +175,24 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     });
 }
 
-/// Offer, at most once and only if InLook isn't already the default, to make it
-/// the default `.eml` viewer. Windows 10/11 won't let an app set the default
-/// silently (the per-user choice is hash protected), so on "Set as default" we
-/// register InLook as a handler and open the OS "Open with" chooser, where the
-/// user confirms via "Always use this app".
+/// Offer, at most once and only if InLook isn't already the default, to make
+/// it the default viewer for the opened file's type. Windows 10/11 won't let
+/// an app set the default silently (the per-user choice is hash protected), so
+/// on "Set as default" we register InLook as a handler and open the OS
+/// "Open with" chooser, where the user confirms via "Always use this app".
 #[cfg(windows)]
 fn maybe_offer_default(file: &Path) {
-    if registry::is_default_eml_handler() || registry::default_prompt_suppressed() {
+    // Only for extensions InLook actually claims — files opened via the picker
+    // with unexpected names shouldn't trigger the offer.
+    let ext = match file
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+    {
+        Some(e) if matches!(e.as_str(), "eml" | "msg" | "oft") => format!(".{e}"),
+        _ => return,
+    };
+    if registry::is_default_handler(&ext) || registry::default_prompt_suppressed() {
         return;
     }
     // Make InLook a registered choice first (no elevation needed).
@@ -198,12 +208,12 @@ fn maybe_offer_default(file: &Path) {
     let result = MessageDialog::new()
         .set_level(MessageLevel::Info)
         .set_title(APP_NAME)
-        .set_description(
-            "Make InLook your default app for .eml email files?\n\n\
+        .set_description(format!(
+            "Make InLook your default app for {ext} email files?\n\n\
              \u{2022} Yes \u{2014} pick InLook (tick \"Always\") in the Windows dialog\n\
              \u{2022} No \u{2014} don't ask again\n\
              \u{2022} Cancel \u{2014} not now",
-        )
+        ))
         .set_buttons(MessageButtons::YesNoCancel)
         .show();
 

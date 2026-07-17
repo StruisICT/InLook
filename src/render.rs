@@ -6,6 +6,18 @@ use std::path::Path;
 /// image or a hostile EML — and rendering them blocks WebView2 for seconds.
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 
+/// Render any supported email file into a self-contained HTML page:
+/// Outlook `.msg` when the bytes carry the compound-file signature,
+/// RFC 822 `.eml` otherwise. This is the single entry point the binary
+/// (and the fuzzer) should use.
+pub fn render_file_to_html(bytes: &[u8], path: &Path) -> String {
+    if crate::msg::is_msg(bytes) {
+        render_msg_to_html(bytes, path)
+    } else {
+        render_eml_to_html(bytes, path)
+    }
+}
+
 /// Render a parsed EML byte slice into a self-contained HTML page suitable for
 /// loading into a WebView2 surface. The returned page sandboxes any embedded
 /// HTML body, applies a strict CSP, and HTML-escapes every header value.
@@ -26,6 +38,79 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
     let body_html = msg.body_html(0).map(std::borrow::Cow::into_owned);
     let body_text = msg.body_text(0).map(std::borrow::Cow::into_owned);
 
+    let mut attachments: Vec<(String, u64)> = Vec::new();
+    for att in msg.attachments() {
+        let name = att
+            .attachment_name()
+            .or_else(|| {
+                att.content_type()
+                    .and_then(mail_parser::ContentType::subtype)
+            })
+            .unwrap_or("(unnamed)");
+        attachments.push((name.to_string(), att.contents().len() as u64));
+    }
+
+    page(
+        &from,
+        &to,
+        &cc,
+        subject,
+        &date,
+        body_html,
+        body_text,
+        &attachments,
+        path,
+    )
+}
+
+/// Render an Outlook `.msg` byte buffer into the same self-contained HTML
+/// page. Parsing lives in [`crate::msg`]; everything that touches HTML —
+/// escaping, sandboxing, CSP — is shared with the EML path via [`page`].
+pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
+    let Some(m) = crate::msg::parse(bytes) else {
+        return error_page(
+            "Could not parse this file as an Outlook .msg message.",
+            path,
+        );
+    };
+
+    let from = match (m.sender_name.as_deref(), m.sender_email.as_deref()) {
+        (Some(n), Some(a)) if !n.is_empty() => format!("{n} <{a}>"),
+        (_, Some(a)) => a.to_string(),
+        (Some(n), None) => n.to_string(),
+        (None, None) => String::new(),
+    };
+    let subject = m.subject.as_deref().unwrap_or("(no subject)");
+    let date = m.date.unwrap_or_else(|| "(no date)".to_string());
+
+    page(
+        &from,
+        m.display_to.as_deref().unwrap_or(""),
+        m.display_cc.as_deref().unwrap_or(""),
+        subject,
+        &date,
+        m.body_html,
+        m.body_text,
+        &m.attachments,
+        path,
+    )
+}
+
+/// Build the full viewer page from *raw* (unescaped) header values, the
+/// optional bodies, and the attachment list. All escaping happens here so
+/// every input format gets the identical security treatment.
+#[allow(clippy::too_many_arguments)]
+fn page(
+    from: &str,
+    to: &str,
+    cc: &str,
+    subject: &str,
+    date: &str,
+    body_html: Option<String>,
+    body_text: Option<String>,
+    attachments: &[(String, u64)],
+    path: &Path,
+) -> String {
     let body_section = match (body_html, body_text) {
         (Some(html), _) => render_html_body(&html),
         (None, Some(text)) => format!(
@@ -35,33 +120,11 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
         (None, None) => "<p class=\"empty\"><em>This message has no body.</em></p>".to_string(),
     };
 
-    let mut attachments = String::new();
-    let mut count = 0_usize;
-    for att in msg.attachments() {
-        count += 1;
-        let name = att
-            .attachment_name()
-            .or_else(|| {
-                att.content_type()
-                    .and_then(mail_parser::ContentType::subtype)
-            })
-            .unwrap_or("(unnamed)");
-        let size = att.contents().len();
-        attachments.push_str(&format!(
-            "<li><span class=\"name\">{}</span> <span class=\"size\">{}</span></li>",
-            html_escape::encode_text(name),
-            human_bytes(size)
-        ));
-    }
-    let attachments_section = if count == 0 {
-        String::new()
-    } else {
-        let plural = if count == 1 { "" } else { "s" };
-        format!(
-            r#"<details class="atts" open><summary>{count} attachment{plural}</summary><ul>{attachments}</ul></details>"#,
-        )
-    };
+    let attachments_section = attachments_section(attachments);
 
+    let from = html_escape::encode_text(from);
+    let to = html_escape::encode_text(to);
+    let cc = html_escape::encode_text(cc);
     let path_str = path.display().to_string();
     let cc_row = if cc.is_empty() {
         String::new()
@@ -149,9 +212,28 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         subject_title = html_escape::encode_text(subject),
         brand = "Struis ICT — Free Software",
         subject = html_escape::encode_text(subject),
-        date = html_escape::encode_text(&date),
+        date = html_escape::encode_text(date),
         path_str = html_escape::encode_text(&path_str),
         path_attr = html_escape::encode_double_quoted_attribute(&path_str),
+    )
+}
+
+fn attachments_section(attachments: &[(String, u64)]) -> String {
+    if attachments.is_empty() {
+        return String::new();
+    }
+    let mut items = String::new();
+    for (name, size) in attachments {
+        items.push_str(&format!(
+            "<li><span class=\"name\">{}</span> <span class=\"size\">{}</span></li>",
+            html_escape::encode_text(name),
+            human_bytes(*size)
+        ));
+    }
+    let count = attachments.len();
+    let plural = if count == 1 { "" } else { "s" };
+    format!(
+        r#"<details class="atts" open><summary>{count} attachment{plural}</summary><ul>{items}</ul></details>"#,
     )
 }
 
@@ -193,20 +275,18 @@ fn format_address_field(value: Option<&Address>) -> String {
     parts.join(", ")
 }
 
+/// Format one address as raw text ("Name <addr>"). Escaping happens later in
+/// [`page`], exactly once, for the whole header value.
 fn format_single_addr(name: Option<&str>, address: Option<&str>) -> String {
     match (name, address) {
-        (Some(n), Some(a)) if !n.is_empty() => format!(
-            "{} &lt;{}&gt;",
-            html_escape::encode_text(n),
-            html_escape::encode_text(a)
-        ),
-        (_, Some(a)) => html_escape::encode_text(a).to_string(),
-        (Some(n), None) => html_escape::encode_text(n).to_string(),
+        (Some(n), Some(a)) if !n.is_empty() => format!("{n} <{a}>"),
+        (_, Some(a)) => a.to_string(),
+        (Some(n), None) => n.to_string(),
         (None, None) => String::new(),
     }
 }
 
-fn human_bytes(n: usize) -> String {
+fn human_bytes(n: u64) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;
     const GB: f64 = MB * 1024.0;
@@ -275,10 +355,11 @@ mod tests {
     }
 
     #[test]
-    fn format_addr_escapes_html() {
-        let s = format_single_addr(Some("<script>"), Some("a@b"));
-        assert!(!s.contains("<script>"));
-        assert!(s.contains("&lt;script&gt;"));
+    fn header_values_are_escaped_in_page() {
+        let eml = b"From: \"<script>\" <a@b>\r\nSubject: t\r\n\r\nbody\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        assert!(!html.to_ascii_lowercase().contains("<script"));
+        assert!(html.contains("&lt;script&gt;"));
     }
 
     #[test]
@@ -327,7 +408,11 @@ mod tests {
 
     #[test]
     fn malformed_input_does_not_panic() {
-        let _ = render_eml_to_html(b"\x00\xff\xfe garbage", &PathBuf::from("x.eml"));
+        let _ = render_file_to_html(b"\x00\xff\xfe garbage", &PathBuf::from("x.eml"));
+        let _ = render_file_to_html(
+            b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1 bad",
+            &PathBuf::from("x.msg"),
+        );
     }
 
     #[test]
@@ -336,5 +421,19 @@ mod tests {
         let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
         assert!(html.contains(r#"name="color-scheme""#));
         assert!(html.contains("prefers-color-scheme: dark"));
+    }
+
+    #[test]
+    fn dispatch_selects_by_magic() {
+        // Text input goes down the EML path even with a .msg name…
+        let html =
+            render_file_to_html(b"From: a@b\r\nSubject: s\r\n\r\nx", &PathBuf::from("a.msg"));
+        assert!(html.contains("a@b"));
+        // …and CFB magic goes down the MSG path (here: unparseable → msg error page).
+        let html = render_file_to_html(
+            b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1 truncated",
+            &PathBuf::from("a.eml"),
+        );
+        assert!(html.contains("Outlook .msg"));
     }
 }

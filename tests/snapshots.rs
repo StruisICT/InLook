@@ -13,7 +13,7 @@
 //!
 //! then inspect `git diff tests/snapshots/` before committing.
 
-use inlook::render::render_eml_to_html;
+use inlook::render::render_file_to_html;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -56,19 +56,21 @@ fn rendered_fixtures_match_snapshots() {
     let mut entries: Vec<PathBuf> = fs::read_dir(fixture_dir())
         .expect("read tests/fixtures")
         .map(|e| e.expect("dir entry").path())
-        .filter(|p| p.extension().is_some_and(|e| e == "eml"))
+        .filter(|p| p.extension().is_some_and(|e| e == "eml" || e == "msg"))
         .collect();
     entries.sort();
     assert!(!entries.is_empty(), "no .eml fixtures found");
 
     for fixture in entries {
-        let name = fixture.file_stem().unwrap().to_string_lossy().into_owned();
+        // Full file name (with extension) keys the snapshot, so
+        // plain-text.eml and plain-text.msg get distinct goldens.
+        let name = fixture.file_name().unwrap().to_string_lossy().into_owned();
         let bytes = fs::read(&fixture).expect("read fixture");
 
         // Use the bare file name as the displayed path so snapshots are
         // identical on every OS (no machine-specific absolute paths).
-        let shown_path = PathBuf::from(format!("{name}.eml"));
-        let html = normalize(&render_eml_to_html(&bytes, &shown_path));
+        let shown_path = PathBuf::from(&name);
+        let html = normalize(&render_file_to_html(&bytes, &shown_path));
 
         // Blanket security invariant, independent of the golden files: the
         // outer document must never contain an executable script tag, no
@@ -104,7 +106,7 @@ fn rendered_fixtures_match_snapshots() {
         checked += 1;
     }
     assert!(
-        checked >= 6,
+        checked >= 8,
         "expected at least 6 fixtures, checked {checked}"
     );
 }

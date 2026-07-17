@@ -3,14 +3,15 @@ name = "inlook"
 version = "0.7.0"
 edition = "2021"
 rust-version = "1.74"
-description = "InLook — fast EML viewer. Free Software from Struis ICT."
+description = "InLook — fast viewer for EML and Outlook MSG email files. Free Software from Struis ICT."
 authors = ["Struis ICT"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/StruisICT/InLook"
-keywords = ["eml", "email", "viewer", "windows", "mime"]
+keywords = ["eml", "msg", "email", "viewer", "outlook"]
 categories = ["email", "gui"]
 
 [dependencies]
+cfb = "0.14"
 mail-parser = "0.10"
 tao = "0.30"
 wry = "0.45"

@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - "src/render.rs"
+      - "src/msg.rs"
       - "src/lib.rs"
       - "fuzz/**"
       - ".github/workflows/fuzz.yml"
@@ -52,7 +53,7 @@ jobs:
       - name: Seed corpus from test fixtures
         run: |
           mkdir -p fuzz/corpus/render_eml
-          cp tests/fixtures/*.eml test/*.eml fuzz/corpus/render_eml/
+          cp tests/fixtures/*.eml tests/fixtures/*.msg test/*.eml fuzz/corpus/render_eml/
 
       - name: Fuzz for 2 minutes
         # Explicit --target: the prebuilt cargo-fuzz binary is musl-linked and

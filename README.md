@@ -1,10 +1,12 @@
 # InLook
 
-**Fast, safe `.eml` email viewer.** Free Software from **Struis ICT**.
+**Fast, safe viewer for `.eml` and Outlook `.msg` email files.**
+Free Software from **Struis ICT**.
 
-InLook opens a `.eml` file in a clean native window and renders its headers,
-body, and attachment list — without phoning home, loading remote trackers, or
-running any scripts the email tries to sneak in.
+InLook opens an email file (`.eml`, Outlook `.msg`, or `.oft` template) in a
+clean native window and renders its headers, body, and attachment list —
+without phoning home, loading remote trackers, or running any scripts the
+email tries to sneak in.
 
 - **Tiny & native** — a single Rust binary using [`tao`](https://crates.io/crates/tao)
   for the window and [`wry`](https://crates.io/crates/wry) (WebView2 on Windows,
@@ -37,16 +39,22 @@ Pre-built binaries are attached to each
 ## Usage
 
 ```
-inlook <file.eml>     Open an EML file in the viewer window
+inlook <file>         Open an .eml / .msg / .oft email file
 inlook                Open a file picker
-inlook register       Associate .eml with InLook        (Windows, admin)
-inlook unregister     Remove the .eml association        (Windows, admin)
+inlook register       Associate .eml/.msg/.oft with InLook   (Windows, admin)
+inlook unregister     Remove the file associations           (Windows, admin)
 inlook --version
 inlook --help
 ```
 
-On Windows, `inlook register` (run from an **elevated** terminal) makes InLook
-the default handler for `.eml` files so double-clicking one opens it here.
+On Windows, `inlook register` (run from an **elevated** terminal) registers
+InLook as a handler for `.eml`, `.msg`, and `.oft` files and opens Windows
+Settings on InLook's Default Apps page to finish with one click.
+
+> **`.msg` note:** InLook shows the HTML or plain-text body stored in the
+> message. Messages whose body exists *only* as compressed RTF (rare — mostly
+> very old Outlook versions) render their headers and attachment list with an
+> empty body.
 
 ## Build from source
 
