@@ -167,7 +167,8 @@ versions or `CHANGELOG.md`.
 | `packaging/signpath/README.md` | **SignPath Foundation code signing** (the active signing route): free OSS Authenticode cert, wired into `release.yml` behind the `SIGNPATH_ORGANIZATION_ID` var + `SIGNPATH_API_TOKEN` secret; every release needs a manual approval in the SignPath portal. The README's "Code signing policy" section is a Foundation requirement — keep it accurate. |
 | `scripts/sign-windows.ps1` | Legacy PFX signing fallback. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set (newly issued certs no longer come as PFX — SignPath above is the real route). |
 | `Cargo.toml` `[package.metadata.deb]` | Debian `.deb` config (incl. hicolor icon assets). |
-| `scripts/build-appimage.sh`, `scripts/build-dmg.sh`, `scripts/generate-icons.py` | Linux AppImage / macOS dmg builders; icon-set generator. |
+| `scripts/build-appimage.sh`, `scripts/build-dmg.sh`, `scripts/generate-icons.py` | Linux AppImage / macOS dmg builders; icon-set generator. `build-dmg.sh` code-signs with the hardened runtime when `APPLE_SIGNING_IDENTITY` is set. |
+| `packaging/macos/` | Apple Developer ID signing + notarization: wired into `release.yml` behind the `APPLE_*` secrets/variable, gated like SignPath (unsigned until configured). See its `README.md` for the one-time setup. `assets/macos/entitlements.plist` holds the hardened-runtime entitlements (JIT for WKWebView only). |
 | `assets/` | `inlook.ico` (Windows), `inlook.png` + `icons/inlook-*.png` (Linux hicolor), `inlook.desktop`, `Info.plist` (macOS). |
 | `packaging/winget/` | winget submission notes + validated reference manifest (`StruisICT.InLook`). See its `README.md` and the PR #379422 post-mortem. |
 | `packaging/flatpak/` | Flathub submission (`com.struisict.InLook.*`). See its own `README.md`; regenerate `generated-sources.json` whenever `Cargo.lock` changes. |

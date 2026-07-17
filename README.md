@@ -39,6 +39,12 @@ Pre-built binaries are attached to each
 > Runtime**, which ships with Windows 10/11 by default. If missing, InLook shows
 > a clear error telling you to install it.
 
+> **macOS note:** signed + notarized `.dmg` builds are in the pipeline (see
+> [`packaging/macos/`](packaging/macos/README.md)). Until those are enabled, the
+> `.dmg` is unsigned, so Gatekeeper blocks it on first launch. Open it once with
+> **right-click → Open → Open**, or run
+> `xattr -dr com.apple.quarantine /Applications/InLook.app`.
+
 ## Usage
 
 ```
