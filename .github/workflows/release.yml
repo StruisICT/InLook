@@ -128,7 +128,7 @@ jobs:
       # SLSA build provenance: cryptographically bind these binaries to this
       # repo + workflow run. Verify with: gh attestation verify <file> --repo StruisICT/InLook
       - name: Attest Windows artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             target/wix/inlook-*.msi
@@ -193,7 +193,7 @@ jobs:
           files: dist/*.AppImage
 
       - name: Attest Linux artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             target/debian/*.deb
@@ -295,7 +295,7 @@ jobs:
           rm -f "$RUNNER_TEMP/api_key.p8"
 
       - name: Attest macOS artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*.dmg
 
@@ -326,7 +326,7 @@ jobs:
           cargo cyclonedx --format json --target all --spec-version 1.5
           cp inlook.cdx.json "inlook-${{ needs.release-please.outputs.tag_name }}-sbom.cdx.json"
       - name: Attest SBOM
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: inlook-*-sbom.cdx.json
       - name: Attach SBOM to GitHub Release
