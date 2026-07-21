@@ -154,6 +154,7 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
 
     let window = match WindowBuilder::new()
         .with_title(&title)
+        .with_window_icon(window_icon())
         .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 800.0))
         .build(&event_loop)
     {
@@ -254,6 +255,23 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
             _ => {}
         }
     });
+}
+
+/// The window/title-bar (and taskbar / Alt-Tab) icon. On Windows this loads the
+/// app icon that `build.rs` (winresource) embedded into the executable as
+/// resource ID 1 — no extra file to ship or decode. On other platforms the
+/// icon comes from the desktop-integration files (`.desktop`, `.app`), so the
+/// window icon is left unset here.
+fn window_icon() -> Option<tao::window::Icon> {
+    #[cfg(windows)]
+    {
+        use tao::platform::windows::IconExtWindows;
+        tao::window::Icon::from_resource(1, None).ok()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
 }
 
 /// Window title for a given file: "name — InLook".
