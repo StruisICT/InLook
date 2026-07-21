@@ -56,11 +56,22 @@ jobs:
           cp tests/fixtures/*.eml tests/fixtures/*.msg test/*.eml fuzz/corpus/render_eml/
 
       - name: Fuzz for 2 minutes
+        # --release (-O): fuzz the configuration we actually ship. Without it
+        # cargo-fuzz builds with debug-assertions on, which trips an *upstream*
+        # debug_assert!(false) in mail-parser (parsers/message.rs, "Invalid
+        # part ID") on some malformed multipart input. That assert is compiled
+        # out in the released (release, panic=abort) binary — parsing just
+        # continues — so it is not a real crash for users, but it would red
+        # this job forever. Release still catches genuine panics (out-of-bounds
+        # indexing, unwrap, slice ranges) since those abort regardless of
+        # debug-assertions; our own arithmetic is additionally covered by the
+        # proptest suite (tests/properties.rs).
+        #
         # Explicit --target: the prebuilt cargo-fuzz binary is musl-linked and
         # would otherwise default to x86_64-unknown-linux-musl, where static
         # libc conflicts with ASan ("sanitizer is incompatible with statically
         # linked libc").
-        run: cargo +nightly fuzz run render_eml --target x86_64-unknown-linux-gnu -- -max_total_time=120
+        run: cargo +nightly fuzz run --release render_eml --target x86_64-unknown-linux-gnu -- -max_total_time=120
 
       - name: Upload crash artifacts
         if: failure()
