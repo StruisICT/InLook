@@ -68,6 +68,45 @@ jobs:
       - name: Check on MSRV
         run: cargo check --release --all-targets
 
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system deps (wry/webkit2gtk)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      # Report-only for now (no --fail-under): the binary's platform/FFI glue
+      # (main.rs, registry.rs, update.rs) isn't unit-testable, so a hard
+      # workspace-wide floor would be noisy. The summary gives visibility into
+      # the pure lib coverage (render/msg/extract/version), which the tests
+      # target. Also emit lcov for anyone who wants to wire up a code-cov badge.
+      - name: Coverage summary
+        run: |
+          # Run the suite once under instrumentation, writing lcov, then print
+          # the human summary from the same collected data (no re-run).
+          cargo llvm-cov --release --lcov --output-path lcov.info
+          cargo llvm-cov --release --no-run --summary-only
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          if-no-files-found: ignore
+
   audit:
     name: Security audit
     runs-on: ubuntu-latest

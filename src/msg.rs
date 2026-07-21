@@ -44,9 +44,7 @@ pub struct Msg {
     pub inline_images: Vec<InlineImage>,
 }
 
-/// Total budget for payloads read for `cid:` inlining. Attachments beyond
-/// this render as broken images rather than ballooning the page.
-const MAX_INLINE_TOTAL: usize = 8 * 1024 * 1024;
+use crate::render::MAX_INLINE_TOTAL_BYTES as MAX_INLINE_TOTAL;
 
 /// Parse a `.msg` byte buffer. Returns `None` when the compound file cannot
 /// be opened or contains nothing recognizable as a message.

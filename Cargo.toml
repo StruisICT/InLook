@@ -18,6 +18,13 @@ wry = "0.45"
 rfd = "0.17"
 html-escape = "0.2"
 
+[dev-dependencies]
+# Property-based tests for the render/parse path — a normal-CI complement to
+# the nightly cargo-fuzz target (same invariants, no nightly toolchain needed).
+proptest = "1"
+# Build synthetic .msg fixtures in tests (same crate the parser uses).
+cfb = "0.14"
+
 [target.'cfg(windows)'.dependencies]
 windows-registry = "0.2"
 windows = { version = "0.62", features = [
