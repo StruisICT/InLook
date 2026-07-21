@@ -7,6 +7,13 @@ use std::path::Path;
 /// image or a hostile EML — and rendering them blocks WebView2 for seconds.
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 
+/// Total budget for `cid:` image data inlined into the page as base64. Beyond
+/// this, further inline images are left as unresolved `cid:` refs rather than
+/// letting a crafted (or just very large) email balloon the page — e.g. a
+/// 20 MB message whose body embeds a huge inline image. The `.msg` reader
+/// (`msg.rs`) also uses this to avoid even *reading* oversized streams.
+pub(crate) const MAX_INLINE_TOTAL_BYTES: usize = 8 * 1024 * 1024;
+
 /// Render any supported email file into a self-contained HTML page:
 /// Outlook `.msg` when the bytes carry the compound-file signature,
 /// RFC 822 `.eml` otherwise. This is the single entry point the binary
@@ -279,6 +286,7 @@ fn attachments_section(attachments: &[AttachmentMeta]) -> String {
 /// allows `data:` images only.
 fn inline_cid_images(html: &str, images: &[InlineImage]) -> String {
     let mut out = html.to_string();
+    let mut budget = MAX_INLINE_TOTAL_BYTES;
     for img in images {
         if img.content_id.is_empty() || img.data.is_empty() {
             continue;
@@ -290,6 +298,12 @@ fn inline_cid_images(html: &str, images: &[InlineImage]) -> String {
             .map(str::to_string)
             .or_else(|| sniff_image_mime(&img.data).map(str::to_string));
         let Some(mime) = mime else { continue };
+        // Skip images that would blow the total inline budget — they stay as
+        // unresolved cid: refs (a broken image) rather than ballooning the page.
+        if img.data.len() > budget {
+            continue;
+        }
+        budget -= img.data.len();
         let uri = format!("data:{mime};base64,{}", base64(&img.data));
         out = out.replace(&format!("cid:{}", img.content_id), &uri);
     }
