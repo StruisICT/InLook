@@ -54,7 +54,7 @@ jobs:
     if: ${{ vars.ENABLE_PACKAGERS == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.PACKAGERS_TOKEN }}
 
@@ -110,12 +110,12 @@ jobs:
     if: ${{ vars.ENABLE_PACKAGERS == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.PACKAGERS_TOKEN }}
           fetch-depth: 0  # need tags + history to resolve the release commit
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 

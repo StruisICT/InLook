@@ -13,7 +13,7 @@ categories = ["email", "gui"]
 [dependencies]
 cfb = "0.14"
 mail-parser = "0.11"
-tao = "0.30"
+tao = "0.35"
 wry = "0.45"
 rfd = "0.17"
 html-escape = "0.2"
