@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0](https://github.com/StruisICT/InLook/compare/v0.9.0...v1.0.0) (2026-07-21)
+
+
+### Features
+
+* 'Check for updates' menu item + raise file limit to 5 GiB ([#67](https://github.com/StruisICT/InLook/issues/67)) ([68237ec](https://github.com/StruisICT/InLook/commit/68237ecca2a52a0bb4b90ec0287f6e318bdc00bf))
+* **macos:** Developer ID signing + notarization pipeline (gated) ([#58](https://github.com/StruisICT/InLook/issues/58)) ([05d2afd](https://github.com/StruisICT/InLook/commit/05d2afdac200c141729a8e9af8af9e19c45ba2fa))
+* remove the automatic 'make InLook your default app' popup ([#61](https://github.com/StruisICT/InLook/issues/61)) ([2ccb51b](https://github.com/StruisICT/InLook/commit/2ccb51bcb53489b9df132d83d6edc6af25ec2ebd))
+* welcome screen (drag-drop + browse) and About menu with Buy Me a Coffee ([#66](https://github.com/StruisICT/InLook/issues/66)) ([ae1107e](https://github.com/StruisICT/InLook/commit/ae1107ef9a2d58eac64beb492ae6595985f733c1))
+
+
+### Bug Fixes
+
+* render large/image-heavy emails via a custom protocol (bypass NavigateToString 2 MB cap) ([#60](https://github.com/StruisICT/InLook/issues/60)) ([70794ab](https://github.com/StruisICT/InLook/commit/70794ab239c2d2eb86a83c620484a8c32d91bcaf))
+* **windows:** give each process its own WebView2 data folder (0x800700AA) ([#69](https://github.com/StruisICT/InLook/issues/69)) ([bbf7cca](https://github.com/StruisICT/InLook/commit/bbf7ccab77f92461a296b82083b72d650571a093))
+* **windows:** show the app icon in the window title bar and taskbar ([#68](https://github.com/StruisICT/InLook/issues/68)) ([44e4165](https://github.com/StruisICT/InLook/commit/44e4165a3281a4693df8213e772786158533e329))
+
+
+### Miscellaneous Chores
+
+* prepare 1.0.0 ([#71](https://github.com/StruisICT/InLook/issues/71)) ([0102a85](https://github.com/StruisICT/InLook/commit/0102a85b2dc61327e51b7fbb800c59716c8694e6))
+
 ## [0.9.0](https://github.com/StruisICT/InLook/compare/v0.8.0...v0.9.0) (2026-07-17)
 
 
