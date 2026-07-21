@@ -515,14 +515,38 @@ fn show_error(msg: &str) {
         .show();
 }
 
-/// A per-user, writable directory for WebView2's data folder. Installed builds
-/// live in `Program Files`, which standard users can't write to, so WebView2's
-/// default (a folder beside `inlook.exe`) fails with access-denied. Store it
-/// under `%LOCALAPPDATA%\InLook\WebView2` instead.
+/// A per-user, writable, **per-process** directory for WebView2's data folder.
+///
+/// Two reasons it's not just a fixed path:
+/// - Installed builds live in `Program Files`, which standard users can't write
+///   to, so WebView2's default (a folder beside `inlook.exe`) fails with
+///   access-denied — hence `%LOCALAPPDATA%\InLook\WebView2`.
+/// - WebView2 can't share one user-data folder across processes: a second
+///   instance fails with `0x800700AA` ("resource in use"). InLook legitimately
+///   runs several processes at once — a second email opened from Explorer while
+///   a window is already up, or a nested/attached message (which spawns a new
+///   instance) — so each process gets its own `…\WebView2\<pid>` folder.
+///
+/// Stale folders from processes that have exited are cleaned up best-effort on
+/// startup; a folder still in use by a live instance stays locked, so its
+/// removal simply fails and it is skipped.
 #[cfg(windows)]
 fn webview_data_dir() -> Option<PathBuf> {
     let base = std::env::var_os("LOCALAPPDATA")?;
-    let dir = Path::new(&base).join(APP_NAME).join("WebView2");
+    let root = Path::new(&base).join(APP_NAME).join("WebView2");
+    if let Ok(entries) = std::fs::read_dir(&root) {
+        for entry in entries.flatten() {
+            // Only touch our own per-pid session folders (all-digit names).
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+            {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+    }
+    let dir = root.join(std::process::id().to_string());
     // Best-effort: if creation fails, WebView2 surfaces its own error on build.
     let _ = std::fs::create_dir_all(&dir);
     Some(dir)
@@ -537,17 +561,28 @@ fn webview_data_dir() -> Option<PathBuf> {
 
 /// Turn a failed WebView build into a clear, actionable message that prompts
 /// the user rather than dumping a raw error. On Windows it distinguishes
-/// "runtime not installed" (tell them how to install it) from "installed but
-/// couldn't start" (usually a data-folder permission problem).
+/// "runtime not installed" (how to install it), "resource in use" (a transient
+/// WebView2 lock), and other startup failures (data-folder permissions).
 #[cfg(windows)]
 fn webview_error_message(e: &wry::Error) -> String {
+    let detail = e.to_string();
+    // 0x800700AA = ERROR_BUSY, "the requested resource is in use" — WebView2's
+    // data folder was momentarily locked by another instance shutting down.
+    if detail.contains("800700AA") || detail.to_ascii_lowercase().contains("in use") {
+        return format!(
+            "InLook couldn't open this view because a WebView2 resource was busy \
+             (another InLook window may have just been closing).\n\n\
+             Please try opening the email again in a moment.\n\n\
+             Technical detail: {e}"
+        );
+    }
     if webview2_runtime_installed() {
         format!(
             "InLook couldn't display the email body.\n\n\
              The Microsoft Edge WebView2 Runtime is installed, but it failed to \
              start:\n{e}\n\n\
-             This is usually a permissions problem with WebView2's data folder. \
-             InLook keeps it here:\n    %LOCALAPPDATA%\\{APP_NAME}\\WebView2\n\n\
+             This can be a permissions problem with WebView2's data folder, which \
+             InLook keeps here:\n    %LOCALAPPDATA%\\{APP_NAME}\\WebView2\n\n\
              Make sure that folder exists and is writable, then reopen the email."
         )
     } else {
