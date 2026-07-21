@@ -91,10 +91,10 @@ InLook follows [Semantic Versioning 2.0.0](https://semver.org/)
 contract: the command-line flags/subcommands and their exit codes, the `.eml`
 file association, and the published package identifiers. MAJOR = a
 backwards-incompatible change to that contract, MINOR = a backwards-compatible
-new capability, PATCH = a backwards-compatible fix. While at `0.x` (initial
-development) the contract may still change. Releases are automated from
-[Conventional Commits](https://www.conventionalcommits.org/) via release-please;
-see [`AGENTS.md` §5.1](AGENTS.md) for the full policy.
+new capability, PATCH = a backwards-compatible fix. As of **1.0.0** that
+contract is stable — breaking it requires a MAJOR bump. Releases are automated
+from [Conventional Commits](https://www.conventionalcommits.org/) via
+release-please; see [`AGENTS.md` §5.1](AGENTS.md) for the full policy.
 
 ## Code signing policy
 
