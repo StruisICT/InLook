@@ -192,14 +192,15 @@ smoke test.
 
 ## 8. Current state (update this section as work lands)
 
-- **Version:** 0.5.0.
-- **Working branches of note:** `feat/struisict-org-urls` (org URL rebrand, PR
-  #30, unmerged) and `test/render-fuzz-and-snapshots` (lib/bin split + golden
-  snapshot tests + cargo-fuzz target, stacked on #30). Several dependabot
-  branches open, including `mail-parser 0.11.4` and `tao 0.35.3` (the `tao`
-  jump is multi-major — review the window/event-loop API before merging).
-- **Repo recently transferred** from `Struis112/InLook` to the `StruisICT` org;
-  URLs are being updated to match.
+- **Version:** approaching **1.0.0** (last release 0.9.0). Features shipped
+  since 0.5.0: `.msg`/`.oft` support, attachment save + nested-message open,
+  inline `cid:` images, opt-in + on-demand update check, welcome screen with
+  drag-drop + About menu, window icon, per-process WebView2 data folder.
+- **Deps:** `tao` is on **0.35** (the multi-major jump built cleanly with wry
+  0.45 — they're decoupled via `raw-window-handle`; verified GUI at runtime).
+  `wry` stays at 0.45 (bumping to 0.55 is a separate, larger API migration —
+  dependabot ignores wry majors on purpose; see §7). GitHub Actions and
+  `html-escape` kept current.
 
 ## 9. Roadmap / ideas (not yet built)
 

@@ -20,7 +20,7 @@ jobs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: rp
         with:
           config-file: release-please-config.json
@@ -36,7 +36,7 @@ jobs:
       id-token: write # SLSA build-provenance attestation
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -100,7 +100,7 @@ jobs:
       - name: Upload unsigned artifact
         id: unsigned
         if: steps.signpath.outputs.enabled == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-unsigned
           path: unsigned/
@@ -128,7 +128,7 @@ jobs:
       # SLSA build provenance: cryptographically bind these binaries to this
       # repo + workflow run. Verify with: gh attestation verify <file> --repo StruisICT/InLook
       - name: Attest Windows artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             target/wix/inlook-*.msi
@@ -152,7 +152,7 @@ jobs:
       id-token: write # SLSA build-provenance attestation
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install system deps
         run: |
@@ -193,7 +193,7 @@ jobs:
           files: dist/*.AppImage
 
       - name: Attest Linux artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             target/debian/*.deb
@@ -209,7 +209,7 @@ jobs:
       id-token: write # SLSA build-provenance attestation
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -295,7 +295,7 @@ jobs:
           rm -f "$RUNNER_TEMP/api_key.p8"
 
       - name: Attest macOS artifacts
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*.dmg
 
@@ -315,7 +315,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-cyclonedx
         run: cargo install cargo-cyclonedx --locked
@@ -326,7 +326,7 @@ jobs:
           cargo cyclonedx --format json --target all --spec-version 1.5
           cp inlook.cdx.json "inlook-${{ needs.release-please.outputs.tag_name }}-sbom.cdx.json"
       - name: Attest SBOM
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: inlook-*-sbom.cdx.json
       - name: Attach SBOM to GitHub Release
