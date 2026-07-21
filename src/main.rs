@@ -27,6 +27,15 @@ const INLOOKVIEW_URL: &str = "http://inlookview.localhost/";
 #[cfg(not(any(target_os = "windows", target_os = "android")))]
 const INLOOKVIEW_URL: &str = "inlookview://localhost/";
 
+/// Events posted from the WebView's navigation / drag-drop handlers back to the
+/// event loop, which owns the WebView and can swap its content.
+enum UserEvent {
+    /// Open the file picker (the welcome screen's Browse / Open action).
+    Browse,
+    /// Load a specific file (e.g. one dropped onto the window).
+    OpenFile(PathBuf),
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let cmd = args.get(1).map(String::as_str);
@@ -77,20 +86,15 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some(path) if !path.starts_with("--") => open_viewer(PathBuf::from(path)),
+        Some(path) if !path.starts_with("--") => open_viewer(Some(PathBuf::from(path))),
         Some(other) => {
             eprintln!("Unknown option: {other}");
             print_help();
             ExitCode::FAILURE
         }
-        None => match rfd::FileDialog::new()
-            .set_title(format!("{APP_NAME} — open email file"))
-            .add_filter("Email message", &["eml", "msg", "oft"])
-            .pick_file()
-        {
-            Some(p) => open_viewer(p),
-            None => ExitCode::SUCCESS,
-        },
+        // No file: show the welcome screen (drag-and-drop or browse), rather
+        // than popping a file picker straight away.
+        None => open_viewer(None),
     }
 }
 
@@ -105,29 +109,45 @@ fn print_help() {
     println!("  inlook --version");
 }
 
-fn open_viewer(path: PathBuf) -> ExitCode {
-    let bytes = match read_eml(&path) {
-        Ok(b) => std::sync::Arc::new(b),
-        Err(e) => {
-            show_error(&format!("Cannot open {}:\n{e}", path.display()));
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let html = render::render_file_to_html(&bytes, &path);
-
+/// Open the main window. With `initial = Some(path)` it renders that email
+/// directly (double-click / launched-with-a-file). With `initial = None` it
+/// shows the welcome screen (drag-and-drop or click to browse). Either way the
+/// same window can then load further files in place (browse, or drag-drop).
+fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
+    use std::sync::{Arc, Mutex};
     use tao::{
         event::{Event, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
+        event_loop::{ControlFlow, EventLoopBuilder},
         window::WindowBuilder,
     };
-    use wry::WebViewBuilder;
+    use wry::{DragDropEvent, WebViewBuilder};
 
-    let event_loop = EventLoop::new();
-    let title = format!(
-        "{} — {APP_NAME}",
-        path.file_name().and_then(|s| s.to_str()).unwrap_or("EML"),
-    );
+    // The document currently served by the custom protocol, and the raw bytes
+    // of the currently-open email (for attachment save / nested-open). Both are
+    // swapped in place when a new file is loaded.
+    let doc = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let current_bytes: Arc<Mutex<Option<Arc<Vec<u8>>>>> = Arc::new(Mutex::new(None));
+
+    let mut title = APP_NAME.to_string();
+    match &initial {
+        Some(path) => match read_eml(path) {
+            Ok(b) => {
+                let b = Arc::new(b);
+                *doc.lock().unwrap() = render::render_file_to_html(&b, path).into_bytes();
+                *current_bytes.lock().unwrap() = Some(b);
+                title = window_title(path);
+            }
+            Err(e) => {
+                show_error(&format!("Cannot open {}:\n{e}", path.display()));
+                return ExitCode::FAILURE;
+            }
+        },
+        None => *doc.lock().unwrap() = render::render_welcome_html().into_bytes(),
+    }
+
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
     let window = match WindowBuilder::new()
         .with_title(&title)
         .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 800.0))
@@ -146,31 +166,44 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     // a per-user, writable folder instead. `web_context` must outlive `build()`;
     // it lives until the (diverging) event loop, so it is never dropped early.
     let mut web_context = wry::WebContext::new(webview_data_dir());
-    let nav_bytes = bytes.clone();
 
-    // Serve the rendered page from memory via a custom protocol instead of
+    let doc_proto = doc.clone();
+    let nav_bytes = current_bytes.clone();
+    let nav_proxy = proxy.clone();
+    let drop_proxy = proxy.clone();
+
+    // Serve the current page from memory via a custom protocol instead of
     // `with_html`. On Windows `with_html` goes through WebView2's
     // NavigateToString, which caps the page at 2 MB — a large or image-heavy
     // email (inlined `cid:` images are base64, +33%) exceeds it and fails to
     // display. A custom protocol streams the response like a local server: no
     // size limit, and the HTML stays in memory so the email body never touches
-    // disk. The CSP is also sent as an HTTP header here, so it applies at the
-    // transport layer, not only via the page's <meta> tag.
-    let doc: std::sync::Arc<[u8]> = std::sync::Arc::from(html.into_bytes().into_boxed_slice());
-    let _webview = match WebViewBuilder::new(&window)
+    // disk. The CSP is also sent as an HTTP header, so it applies at the
+    // transport layer, not only via the page's <meta> tag. Reloading the URL
+    // after a swap re-requests this handler, which serves the new document.
+    let webview = match WebViewBuilder::new(&window)
         .with_web_context(&mut web_context)
         .with_custom_protocol("inlookview".to_string(), move |_request| {
+            let body = doc_proto.lock().unwrap().clone();
             wry::http::Response::builder()
                 .header("Content-Type", "text/html; charset=utf-8")
                 .header(
                     "Content-Security-Policy",
                     "default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';",
                 )
-                .body(std::borrow::Cow::from(doc.to_vec()))
+                .body(std::borrow::Cow::from(body))
                 .unwrap_or_else(|_| wry::http::Response::new(std::borrow::Cow::from(Vec::new())))
         })
         .with_url(INLOOKVIEW_URL)
-        .with_navigation_handler(move |url| handle_navigation(&url, &nav_bytes))
+        .with_navigation_handler(move |url| handle_navigation(&url, &nav_bytes, &nav_proxy))
+        .with_drag_drop_handler(move |event| {
+            if let DragDropEvent::Drop { paths, .. } = event {
+                if let Some(p) = paths.into_iter().find(|p| p.is_file()) {
+                    let _ = drop_proxy.send_event(UserEvent::OpenFile(p));
+                }
+            }
+            true // we handle drops ourselves; don't fall through to the OS
+        })
         .build()
     {
         Ok(v) => v,
@@ -181,9 +214,12 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     };
 
     // On Windows, run the opt-in update check once after the window has
-    // painted, so the email is visible behind any first-run consent prompt.
+    // painted, so the content is visible behind any first-run consent prompt.
     #[cfg(windows)]
     let mut update_check_pending = true;
+
+    let doc_loop = doc.clone();
+    let bytes_loop = current_bytes.clone();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -193,6 +229,18 @@ fn open_viewer(path: PathBuf) -> ExitCode {
                 ..
             } => {
                 *control_flow = ControlFlow::Exit;
+            }
+            Event::UserEvent(UserEvent::Browse) => {
+                if let Some(p) = rfd::FileDialog::new()
+                    .set_title(format!("{APP_NAME} — open email file"))
+                    .add_filter("Email message", &["eml", "msg", "oft"])
+                    .pick_file()
+                {
+                    load_file(&webview, &window, &p, &doc_loop, &bytes_loop);
+                }
+            }
+            Event::UserEvent(UserEvent::OpenFile(p)) => {
+                load_file(&webview, &window, &p, &doc_loop, &bytes_loop);
             }
             #[cfg(windows)]
             Event::RedrawEventsCleared if update_check_pending => {
@@ -204,22 +252,116 @@ fn open_viewer(path: PathBuf) -> ExitCode {
     });
 }
 
+/// Window title for a given file: "name — InLook".
+fn window_title(path: &Path) -> String {
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("email");
+    format!("{name} — {APP_NAME}")
+}
+
+/// Render `path` into the shared document and reload the WebView so it swaps to
+/// the new email in place. On a read error the current view is left untouched.
+fn load_file(
+    webview: &wry::WebView,
+    window: &tao::window::Window,
+    path: &Path,
+    doc: &std::sync::Mutex<Vec<u8>>,
+    current_bytes: &std::sync::Mutex<Option<std::sync::Arc<Vec<u8>>>>,
+) {
+    match read_eml(path) {
+        Ok(b) => {
+            let b = std::sync::Arc::new(b);
+            let html = render::render_file_to_html(&b, path);
+            *doc.lock().unwrap() = html.into_bytes();
+            *current_bytes.lock().unwrap() = Some(b);
+            let _ = webview.load_url(INLOOKVIEW_URL);
+            window.set_title(&window_title(path));
+        }
+        Err(e) => show_error(&format!("Cannot open {}:\n{e}", path.display())),
+    }
+}
+
+/// Open a fixed http(s) URL (our own About-panel links) in the system browser.
+fn open_external(url: &str) {
+    // Defense in depth: never launch anything but http/https.
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows::core::PCWSTR;
+        use windows::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
+        let wide: Vec<u16> = std::ffi::OsStr::new(url)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let verb: Vec<u16> = std::ffi::OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        // Reason: opening a URL in the default browser requires ShellExecuteW.
+        // The URL is one of our own compile-time-constant links (About panel),
+        // and only ever http/https per the guard above.
+        #[allow(unsafe_code)]
+        unsafe {
+            ShellExecuteW(
+                None,
+                PCWSTR(verb.as_ptr()),
+                PCWSTR(wide.as_ptr()),
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            );
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    }
+}
+
 /// Decide whether the WebView may navigate to `url`, and intercept the
 /// attachment action links the renderer emits. This is the whole click-
 /// handling mechanism: no script runs in the page (the CSP forbids it);
 /// clicking a link merely *attempts* a navigation, which lands here.
-fn handle_navigation(url: &str, bytes: &[u8]) -> bool {
+fn handle_navigation(
+    url: &str,
+    current_bytes: &std::sync::Mutex<Option<std::sync::Arc<Vec<u8>>>>,
+    proxy: &tao::event_loop::EventLoopProxy<UserEvent>,
+) -> bool {
     if let Some(idx) = url.strip_prefix("inlook://save/") {
-        save_attachment(bytes, idx);
+        if let Some(bytes) = current_bytes.lock().unwrap().clone() {
+            save_attachment(&bytes, idx);
+        }
         return false;
     }
     if let Some(idx) = url.strip_prefix("inlook://open/") {
-        open_nested_message(bytes, idx);
+        if let Some(bytes) = current_bytes.lock().unwrap().clone() {
+            open_nested_message(&bytes, idx);
+        }
         return false;
     }
-    // Allow the WebView's own document (served from our custom protocol) and
-    // its inline sub-frames. Everything else — any link an email might smuggle
-    // into scope — is blocked.
+    // Welcome-screen / app-bar "Open" and drop zone → open the file picker.
+    if url == "inlook://browse" || url == "inlook://browse/" {
+        let _ = proxy.send_event(UserEvent::Browse);
+        return false;
+    }
+    // Our own About-panel links (Buy Me a Coffee / GitHub / site) → system
+    // browser. These are the app's own fixed URLs; the email body can't reach
+    // here (it's in a sandboxed iframe that can't navigate the top frame).
+    if (url.starts_with("https://") || url.starts_with("http://"))
+        && !url.starts_with("http://inlookview.")
+    {
+        open_external(url);
+        return false;
+    }
+    // Allow the WebView's own document (served from our custom protocol, incl.
+    // `#about` fragment navigation) and its inline sub-frames. Everything else —
+    // any link an email might smuggle into scope — is blocked.
     url.starts_with("http://inlookview.") // Windows/Android custom-protocol host
         || url.starts_with("inlookview://") // custom-protocol host elsewhere
         || url.starts_with("about:") // about:blank / about:srcdoc (the body iframe)

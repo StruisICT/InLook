@@ -24,7 +24,7 @@ network, no sending.
 | File | Responsibility |
 |---|---|
 | `src/lib.rs` | Library crate root. Exposes the pure, GUI-free core (`pub mod render; pub mod msg`) so it can be unit-, snapshot- and fuzz-tested without a window. Keep it free of I/O and platform glue. |
-| `src/main.rs` | Binary (thin shell over the lib). CLI arg parsing (`--version`, `--help`, `register`, `unregister`, `<file>`, or no-arg file picker). Reads the file (size-capped), builds the `tao` window + `wry` WebView, runs the event loop. Windows console-attach shim for CLI output. |
+| `src/main.rs` | Binary (thin shell over the lib). CLI arg parsing (`--version`, `--help`, `register`, `unregister`, `<file>`, or no-arg → **welcome screen**). Builds the `tao` window + `wry` WebView. The window can load files in place: browse (`inlook://browse`), drag-and-drop, and About-panel external links are routed through `EventLoopProxy<UserEvent>` so the loop swaps the shared `doc`/`current_bytes` and reloads. Windows console-attach shim for CLI output. |
 | `src/render.rs` | `render_file_to_html(bytes, path)` — the single entry point — dispatches on the CFB magic to the `.msg` or `.eml` path; both feed one shared `page()` builder, so **every format gets identical escaping/sandbox/CSP treatment**. Has the unit tests. |
 | `src/msg.rs` | Pure Outlook `.msg`/`.oft` parsing on the `cfb` crate: MAPI property streams (subject, sender, display-to/cc, FILETIME date, text/HTML bodies) and attachment names+sizes (payloads never read). Capped reads, lossy decoding, hostile input degrades to `None`. RTF-only bodies are not decoded (headers + attachments still render). |
 | `src/version.rs` | Pure semver comparison (`is_newer`) for the update check. |
