@@ -14,10 +14,14 @@ use std::process::ExitCode;
 const APP_NAME: &str = "InLook";
 const BRAND: &str = "Free Software from Struis ICT";
 
-/// Refuse to read files larger than this. EML files are normally well under
-/// 25 MiB; anything larger is almost certainly malformed input or a DoS
-/// attempt against the parser/renderer.
-const MAX_FILE_BYTES: u64 = 50 * 1024 * 1024;
+/// Refuse to read files larger than this. Most email is well under 25 MiB, but
+/// a message with big attachments can be much larger, so the cap is generous
+/// (5 GiB) to cover those edge cases. It's still bounded to avoid trying to
+/// allocate absurd amounts for a hostile or accidentally-huge file; opening a
+/// multi-gigabyte message may be slow or fail on low-memory machines (the whole
+/// file is read into memory), but the rendered page stays small — the body is
+/// truncated to `MAX_BODY_BYTES` and attachment payloads are not inlined.
+const MAX_FILE_BYTES: u64 = 5 * 1024 * 1024 * 1024;
 
 /// URL the WebView loads to reach our in-memory custom-protocol handler. wry
 /// maps a custom scheme to `http://<scheme>.<host>` on Windows/Android and
@@ -280,6 +284,17 @@ fn load_file(
     }
 }
 
+/// Handle the About panel's "Check for updates" action. On Windows this runs
+/// the on-demand update check (reports up-to-date / newer available / couldn't
+/// check); elsewhere the update mechanism isn't built, so just open the
+/// releases page in the browser.
+fn check_for_updates() {
+    #[cfg(windows)]
+    update::check_now();
+    #[cfg(not(windows))]
+    open_external("https://github.com/StruisICT/InLook/releases/latest");
+}
+
 /// Open a fixed http(s) URL (our own About-panel links) in the system browser.
 fn open_external(url: &str) {
     // Defense in depth: never launch anything but http/https.
@@ -348,6 +363,11 @@ fn handle_navigation(
     // Welcome-screen / app-bar "Open" and drop zone → open the file picker.
     if url == "inlook://browse" || url == "inlook://browse/" {
         let _ = proxy.send_event(UserEvent::Browse);
+        return false;
+    }
+    // About → "Check for updates": an explicit, on-demand check.
+    if url == "inlook://check-update" || url == "inlook://check-update/" {
+        check_for_updates();
         return false;
     }
     // Our own About-panel links (Buy Me a Coffee / GitHub / site) → system
@@ -462,9 +482,9 @@ fn read_eml(path: &Path) -> Result<Vec<u8>, String> {
     }
     if meta.len() > MAX_FILE_BYTES {
         return Err(format!(
-            "file is {} bytes; the {} MiB limit refused it",
-            meta.len(),
-            MAX_FILE_BYTES / (1024 * 1024)
+            "file is {:.1} GiB; the {} GiB limit refused it",
+            meta.len() as f64 / (1024.0 * 1024.0 * 1024.0),
+            MAX_FILE_BYTES / (1024 * 1024 * 1024)
         ));
     }
     std::fs::read(path).map_err(|e| format!("read: {e}"))

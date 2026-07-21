@@ -1,17 +1,19 @@
-//! Optional, opt-in update check (Windows only).
+//! Update check (Windows only). Two entry points:
 //!
-//! **Off by default.** InLook makes no network call until the user explicitly
-//! answers "yes" to a one-time consent prompt (stored in HKCU). This keeps the
-//! offline-by-default guarantee intact — see the README privacy policy.
+//! - [`maybe_run`] — the **opt-in, off-by-default** auto-check on startup. No
+//!   network call until the user answers "yes" to a one-time consent prompt
+//!   (stored in HKCU), keeping the offline-by-default guarantee intact.
+//! - [`check_now`] — the **on-demand** check the user triggers from
+//!   About → "Check for updates". The click is its own consent, so it works
+//!   regardless of the auto-check setting and always reports a result.
 //!
-//! When enabled, the check is deliberately minimal and uses **no bundled HTTP
-//! or TLS library**: it goes through the operating system's own HTTPS stack
-//! (WinHTTP / Schannel), so certificate validation is the OS's and nothing
-//! third-party is compiled into the security-critical binary. It performs a
-//! single redirect-suppressed GET to the public "latest release" URL, reads
-//! the `Location` header to learn the newest tag, compares it to the running
-//! version, and shows one dialog per new version. It never downloads or runs
-//! anything — it only tells the user to update via winget or the release page.
+//! Both are deliberately minimal and use **no bundled HTTP or TLS library**:
+//! they go through the OS's own HTTPS stack (WinHTTP / Schannel), so
+//! certificate validation is the OS's and nothing third-party is compiled into
+//! the security-critical binary. Each performs a single redirect-suppressed GET
+//! to the public "latest release" URL, reads the `Location` header to learn the
+//! newest tag, and compares it to the running version. Neither ever downloads
+//! or runs anything — they only point the user at winget or the release page.
 
 use crate::registry;
 use inlook::version;
@@ -67,6 +69,49 @@ pub fn maybe_run(may_prompt: bool) {
     });
 }
 
+/// On-demand update check, triggered by the user via About → "Check for
+/// updates". Unlike [`maybe_run`], this always reports a result (up to date /
+/// newer available / couldn't check) and needs no prior opt-in — clicking the
+/// menu item is itself consent for this single check. It never changes the
+/// persistent auto-check setting.
+pub fn check_now() {
+    use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
+    // Network + dialog off the UI thread so the window stays responsive.
+    std::thread::spawn(|| {
+        let current = env!("CARGO_PKG_VERSION");
+        match fetch_latest_tag() {
+            Some(tag) if version::is_newer(&tag, current) => {
+                notify_update_available(tag.trim_start_matches('v'), current);
+            }
+            Some(_) => {
+                MessageDialog::new()
+                    .set_level(MessageLevel::Info)
+                    .set_title(APP_NAME)
+                    .set_description(format!("You're on the latest version (InLook {current})."))
+                    .set_buttons(MessageButtons::Ok)
+                    .show();
+            }
+            None => {
+                let open = matches!(
+                    MessageDialog::new()
+                        .set_level(MessageLevel::Warning)
+                        .set_title(APP_NAME)
+                        .set_description(
+                            "Couldn't check for updates right now.\n\n\
+                             Open the releases page to check manually?",
+                        )
+                        .set_buttons(MessageButtons::YesNo)
+                        .show(),
+                    MessageDialogResult::Yes
+                );
+                if open {
+                    open_releases_page();
+                }
+            }
+        }
+    });
+}
+
 /// One-time consent dialog. Cancel/close is treated as "no" (stay offline).
 fn ask_consent() -> bool {
     use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
@@ -75,14 +120,14 @@ fn ask_consent() -> bool {
             .set_level(MessageLevel::Info)
             .set_title(APP_NAME)
             .set_description(
-                "Check for InLook updates?\n\n\
+                "Check for InLook updates automatically?\n\n\
                  InLook is offline by default. If you choose Yes, it will \
                  occasionally contact github.com (over HTTPS, using Windows' \
                  own secure connection) to see whether a newer version exists. \
                  It never downloads or installs anything automatically, and \
                  sends no information about you or your email.\n\n\
-                 You can change this later in the registry value \
-                 HKCU\\Software\\StruisICT\\InLook\\UpdateCheckEnabled.",
+                 Either way, you can check any time from About \u{2192} \
+                 \"Check for updates\".",
             )
             .set_buttons(MessageButtons::YesNo)
             .show(),

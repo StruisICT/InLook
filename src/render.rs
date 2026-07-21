@@ -146,7 +146,9 @@ const CHROME_CSS: &str = "
 .about-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);}
 .about-card{position:relative;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:26px 28px;max-width:380px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;}
 .about-card h2{margin:0 0 2px;color:var(--accent);font-size:18px;}
-.about-card .ver{color:var(--muted);font-size:12px;margin-bottom:14px;}
+.about-card .ver{color:var(--muted);font-size:12px;margin-bottom:6px;}
+.about-card .check-update{display:inline-block;font-size:12px;color:var(--accent);text-decoration:none;margin-bottom:14px;}
+.about-card .check-update:hover{text-decoration:underline;}
 .about-card p{font-size:13px;line-height:1.5;margin:0 0 18px;}
 .about-card .coffee{display:inline-block;background:#ffdd00;color:#111827;font-weight:700;text-decoration:none;padding:10px 18px;border-radius:8px;margin-bottom:14px;}
 .about-card .links{font-size:12px;color:var(--muted);}
@@ -164,7 +166,7 @@ fn app_bar() -> &'static str {
 /// the navigation handler.
 fn about_overlay() -> String {
     format!(
-        r##"<div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version {ver} &middot; Free Software</div><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="{coffee}">&#9749; Buy me a coffee</a><div class="links"><a href="{github}">GitHub</a> &middot; <a href="{site}">struisict.com</a></div></div></div>"##,
+        r##"<div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version {ver} &middot; Free Software</div><a class="check-update" href="inlook://check-update">Check for updates</a><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="{coffee}">&#9749; Buy me a coffee</a><div class="links"><a href="{github}">GitHub</a> &middot; <a href="{site}">struisict.com</a></div></div></div>"##,
         ver = env!("CARGO_PKG_VERSION"),
         coffee = COFFEE_URL,
         github = GITHUB_URL,
@@ -579,6 +581,9 @@ mod tests {
         // Clickable Buy Me a Coffee link with the real URL.
         assert!(html.contains(COFFEE_URL));
         assert!(html.contains("Buy me a coffee"));
+        // On-demand update check menu item.
+        assert!(html.contains(r#"href="inlook://check-update""#));
+        assert!(html.contains("Check for updates"));
         // Safe by construction: no script, CSP present.
         assert!(!html.to_ascii_lowercase().contains("<script"));
         assert!(html.contains("Content-Security-Policy"));
