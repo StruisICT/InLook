@@ -101,7 +101,7 @@ jobs:
           cargo llvm-cov --release --lcov --output-path lcov.info
           cargo llvm-cov --release --no-run --summary-only
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov
           path: lcov.info
