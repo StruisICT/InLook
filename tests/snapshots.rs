@@ -17,10 +17,17 @@ use inlook::render::render_file_to_html;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Normalise CRLF to LF so snapshots compare identically regardless of the
-/// OS or git line-ending configuration the source was checked out with.
+/// Normalise the rendered HTML so snapshots compare identically regardless of
+/// incidental, non-content differences:
+///   * CRLF → LF, so the OS / git line-ending config doesn't matter;
+///   * the About-overlay version string → a placeholder, so a release version
+///     bump (which changes `env!("CARGO_PKG_VERSION")`) doesn't break the
+///     goldens on every single release.
 fn normalize(s: &str) -> String {
-    s.replace("\r\n", "\n")
+    s.replace("\r\n", "\n").replace(
+        &format!("Version {} &middot;", env!("CARGO_PKG_VERSION")),
+        "Version <VERSION> &middot;",
+    )
 }
 
 fn fixture_dir() -> PathBuf {
