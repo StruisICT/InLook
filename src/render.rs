@@ -129,6 +129,105 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
     )
 }
 
+/// External links used by the About panel. These are our own fixed URLs — the
+/// binary's navigation handler opens them in the system browser.
+const COFFEE_URL: &str = "https://buymeacoffee.com/struis112";
+const GITHUB_URL: &str = "https://github.com/StruisICT/InLook";
+const SITE_URL: &str = "https://struisict.com";
+
+/// Shared CSS for the app bar and the About overlay (used on every page).
+const CHROME_CSS: &str = "
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);flex:0 0 auto;}
+.appbar .brand-app{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em;}
+.appbar .actions a{color:var(--fg);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px;}
+.appbar .actions a:hover{background:var(--card-soft);}
+.about-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;}
+.about-overlay:target{display:flex;}
+.about-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);}
+.about-card{position:relative;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:26px 28px;max-width:380px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;}
+.about-card h2{margin:0 0 2px;color:var(--accent);font-size:18px;}
+.about-card .ver{color:var(--muted);font-size:12px;margin-bottom:14px;}
+.about-card p{font-size:13px;line-height:1.5;margin:0 0 18px;}
+.about-card .coffee{display:inline-block;background:#ffdd00;color:#111827;font-weight:700;text-decoration:none;padding:10px 18px;border-radius:8px;margin-bottom:14px;}
+.about-card .links{font-size:12px;color:var(--muted);}
+.about-card .links a{color:var(--accent);text-decoration:none;}
+.about-card .close{position:absolute;top:8px;right:14px;color:var(--muted);text-decoration:none;font-size:20px;line-height:1;}
+";
+
+/// The top app bar: brand plus the always-available Open / About menu items.
+fn app_bar() -> &'static str {
+    r##"<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#about">About</a></span></nav>"##
+}
+
+/// The About overlay (shown via the CSS `:target` selector — no scripts). The
+/// Buy Me a Coffee / GitHub / site links are opened in the system browser by
+/// the navigation handler.
+fn about_overlay() -> String {
+    format!(
+        r##"<div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version {ver} &middot; Free Software</div><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="{coffee}">&#9749; Buy me a coffee</a><div class="links"><a href="{github}">GitHub</a> &middot; <a href="{site}">struisict.com</a></div></div></div>"##,
+        ver = env!("CARGO_PKG_VERSION"),
+        coffee = COFFEE_URL,
+        github = GITHUB_URL,
+        site = SITE_URL,
+    )
+}
+
+/// The standalone launch screen: a drop zone that also opens the file picker
+/// when clicked. Shown when InLook is started without a file argument.
+pub fn render_welcome_html() -> String {
+    format!(
+        r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';">
+<title>InLook</title>
+<style>
+:root {{
+  --bg: #f5f6f8; --fg: #1a1f2c; --muted: #6b7280; --accent: #2c5282;
+  --border: #e2e8f0; --card: #ffffff; --card-soft: #f7fafc;
+}}
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --bg: #0f172a; --fg: #e2e8f0; --muted: #94a3b8; --accent: #60a5fa;
+    --border: #1e293b; --card: #1a202c; --card-soft: #161e2e;
+  }}
+}}
+* {{ box-sizing: border-box; }}
+html, body {{ height: 100%; }}
+body {{ font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--fg); margin: 0; display: flex; flex-direction: column; }}
+{chrome_css}
+.welcome {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; }}
+.welcome .hero {{ font-size: 46px; margin-bottom: 6px; }}
+.welcome h1 {{ font-size: 22px; color: var(--accent); margin: 0 0 6px; }}
+.welcome .lead {{ color: var(--muted); margin: 0 0 26px; font-size: 14px; }}
+.dropzone {{ display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: min(520px, 92%); min-height: 210px; border: 2px dashed var(--border); border-radius: 16px; background: var(--card); color: var(--muted); text-decoration: none; padding: 28px; }}
+.dropzone:hover {{ border-color: var(--accent); background: var(--card-soft); color: var(--fg); }}
+.dropzone .big {{ font-size: 15px; font-weight: 600; color: var(--fg); }}
+.dropzone .sub {{ font-size: 12px; }}
+</style>
+</head>
+<body>
+{app_bar}
+<div class="welcome">
+  <div class="hero">&#9993;</div>
+  <h1>Open an email</h1>
+  <div class="lead">View .eml and Outlook .msg messages &mdash; safely, offline.</div>
+  <a class="dropzone" href="inlook://browse">
+    <span class="big">Drag an email here</span>
+    <span class="sub">or click to browse your files</span>
+  </a>
+</div>
+{about_overlay}
+</body>
+</html>"#,
+        chrome_css = CHROME_CSS,
+        app_bar = app_bar(),
+        about_overlay = about_overlay(),
+    )
+}
+
 /// Build the full viewer page from *raw* (unescaped) header values, the
 /// optional bodies, and the attachment list. All escaping happens here so
 /// every input format gets the identical security treatment.
@@ -223,9 +322,11 @@ footer {{
   display: flex; justify-content: space-between; gap: 12px;
 }}
 footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+{chrome_css}
 </style>
 </head>
 <body>
+{app_bar}
 <header>
   <div class="brand">{brand}</div>
   <h1>{subject}</h1>
@@ -242,6 +343,7 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
   <span class="path" title="{path_attr}">{path_str}</span>
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
+{about_overlay}
 </body>
 </html>"#,
         subject_title = html_escape::encode_text(subject),
@@ -250,6 +352,9 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         date = html_escape::encode_text(date),
         path_str = html_escape::encode_text(&path_str),
         path_attr = html_escape::encode_double_quoted_attribute(&path_str),
+        chrome_css = CHROME_CSS,
+        app_bar = app_bar(),
+        about_overlay = about_overlay(),
     )
 }
 
@@ -460,6 +565,36 @@ mod tests {
         assert_eq!(human_bytes(1024), "1.0 KB");
         assert_eq!(human_bytes(1024 * 1024), "1.0 MB");
         assert_eq!(human_bytes(1024 * 1024 * 1024), "1.0 GB");
+    }
+
+    #[test]
+    fn welcome_page_has_dropzone_browse_and_about() {
+        let html = render_welcome_html();
+        // Drop zone / browse action.
+        assert!(html.contains(r#"href="inlook://browse""#));
+        assert!(html.contains("Drag an email here"));
+        // App bar + About overlay.
+        assert!(html.contains(r#"class="appbar""#));
+        assert!(html.contains(r#"id="about""#));
+        // Clickable Buy Me a Coffee link with the real URL.
+        assert!(html.contains(COFFEE_URL));
+        assert!(html.contains("Buy me a coffee"));
+        // Safe by construction: no script, CSP present.
+        assert!(!html.to_ascii_lowercase().contains("<script"));
+        assert!(html.contains("Content-Security-Policy"));
+    }
+
+    #[test]
+    fn viewer_page_carries_appbar_and_about() {
+        let eml = b"From: a@b\r\nSubject: hi\r\n\r\nbody";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        assert!(html.contains(r#"class="appbar""#));
+        assert!(html.contains(r#"id="about""#));
+        assert!(html.contains(COFFEE_URL));
+        assert!(html.contains(r#"href="inlook://browse""#));
+        // The About link opens the overlay via a fragment, no script.
+        assert!(html.contains(r##"href="#about""##));
+        assert!(!html.to_ascii_lowercase().contains("<script"));
     }
 
     #[test]
