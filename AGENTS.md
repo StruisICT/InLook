@@ -205,14 +205,22 @@ smoke test.
 ## 9. Roadmap / ideas (not yet built)
 
 Prioritised, viewer-appropriate features:
-1. **Save / open attachments** — currently only *listed*. Highest user value;
-   fits the existing render path. Mind the safe-by-default posture (confirm
-   before writing, sanitise filenames).
-2. **"View raw source" / full-headers toggle** — show all headers / raw RFC 822.
-3. **Plain-text ↔ HTML toggle** when both parts exist.
-4. **Inline `cid:` images** — map `cid:` references to embedded parts as `data:`
-   URIs (keeps the no-remote guarantee).
-5. **Drag-and-drop** an `.eml` onto the window; open multiple files.
+1. **Power-user / technical view** — an opt-in panel for people who want the
+   plumbing, not just the rendered message. Off by default so the normal view
+   stays clean; toggled from the app bar (and pure-CSS, no scripts, like the
+   About overlay). Should surface:
+   - **All headers** verbatim, plus the **raw RFC 822 source** ("View source").
+   - **Routing** — the `Received:` hop chain, parsed and in delivery order.
+   - **Authentication results** — SPF / DKIM / DMARC pass/fail from
+     `Authentication-Results` / `Received-SPF` (display only, no revalidation).
+   - **MIME structure** — the part tree with content-types, encodings, sizes;
+     for `.msg`, the parsed MAPI properties / named streams.
+   - **Metadata** — message size, dates (Date vs Received), Message-ID.
+   Keep everything HTML-escaped and offline; this is inspection, not action.
+2. **Plain-text ↔ HTML toggle** when both parts exist.
+
+(Shipped, formerly on this list: save/open attachments, inline `cid:` images,
+drag-and-drop + multi-file open — see section 8 / CHANGELOG.)
 
 When you pick one up, add a test, follow the commit convention, and update
 sections 8–9 here.
