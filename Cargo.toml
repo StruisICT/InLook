@@ -54,7 +54,9 @@ panic = "abort"
 [package.metadata.deb]
 maintainer = "Struis ICT <info@struisict.com>"
 copyright = "2026, Struis ICT"
-license-file = ["LICENSE", "0"]
+# No `license-file`: the package is dual-licensed (MIT OR Apache-2.0), so
+# cargo-deb generates the copyright file from the `license` field above, and
+# both full license texts ship as doc assets below.
 extended-description = """\
 InLook is a small, fast viewer for .eml email files.
 Free Software from Struis ICT — https://struisict.com"""
@@ -63,7 +65,8 @@ priority = "optional"
 assets = [
     ["target/release/inlook", "usr/bin/", "755"],
     ["assets/inlook.desktop", "usr/share/applications/", "644"],
-    ["LICENSE", "usr/share/doc/inlook/", "644"],
+    ["LICENSE-MIT", "usr/share/doc/inlook/", "644"],
+    ["LICENSE-APACHE", "usr/share/doc/inlook/", "644"],
     ["assets/icons/inlook-16.png",   "usr/share/icons/hicolor/16x16/apps/inlook.png",   "644"],
     ["assets/icons/inlook-32.png",   "usr/share/icons/hicolor/32x32/apps/inlook.png",   "644"],
     ["assets/icons/inlook-48.png",   "usr/share/icons/hicolor/48x48/apps/inlook.png",   "644"],
