@@ -130,7 +130,9 @@ anything** or sends any information about you or your email.
 
 ## License
 
-Dual-licensed under **MIT OR Apache-2.0**. See [`LICENSE`](LICENSE).
+Dual-licensed under **MIT OR Apache-2.0** — you may use it under the terms of
+either license. See [`LICENSE-MIT`](LICENSE-MIT) and
+[`LICENSE-APACHE`](LICENSE-APACHE).
 
 ---
 
