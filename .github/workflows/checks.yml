@@ -63,7 +63,7 @@ jobs:
             librsvg2-dev
       # Pinned to the declared MSRV (Cargo.toml `rust-version`). If a dependency
       # bump raises the real floor, this job fails — bump both together.
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.100
       - uses: Swatinem/rust-cache@v2
       - name: Check on MSRV
         run: cargo check --release --all-targets
