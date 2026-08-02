@@ -1,5 +1,5 @@
 use crate::{AttachmentMeta, InlineImage};
-use mail_parser::{Address, MessageParser, MimeHeaders, PartType};
+use mail_parser::{Address, Encoding, Message, MessageParser, MimeHeaders, PartType};
 use std::path::Path;
 
 /// Truncate any single body part larger than this before embedding it in the
@@ -13,6 +13,14 @@ const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 /// 20 MB message whose body embeds a huge inline image. The `.msg` reader
 /// (`msg.rs`) also uses this to avoid even *reading* oversized streams.
 pub(crate) const MAX_INLINE_TOTAL_BYTES: usize = 8 * 1024 * 1024;
+
+/// Cap for the "Raw source" block in the technical panel. Unlike the body, the
+/// raw source can be the *whole* message (headers + base64 attachments), so a
+/// 20 MB email would otherwise balloon the page — breaking the invariant that
+/// the rendered page stays small no matter the input. All headers are shown in
+/// full in their own section; this bound only trims the byte-for-byte dump,
+/// with a truncation notice. Kept well under the page-size budget.
+const MAX_SOURCE_BYTES: usize = 64 * 1024;
 
 /// Render any supported email file into a self-contained HTML page:
 /// Outlook `.msg` when the bytes carry the compound-file signature,
@@ -82,6 +90,8 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
         .body_html(0)
         .map(|h| inline_cid_images(&h, &inline_images));
 
+    let technical = collect_eml_technical(&msg, bytes);
+
     page(
         &from,
         &to,
@@ -91,6 +101,7 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
         body_html,
         body_text,
         &attachments,
+        &technical,
         path,
     )
 }
@@ -105,6 +116,9 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
             path,
         );
     };
+
+    // Collect the technical view before any of `m`'s fields are moved below.
+    let technical = collect_msg_technical(&m, bytes);
 
     let from = match (m.sender_name.as_deref(), m.sender_email.as_deref()) {
         (Some(n), Some(a)) if !n.is_empty() => format!("{n} <{a}>"),
@@ -125,8 +139,168 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
         body_html,
         m.body_text,
         &m.attachments,
+        &technical,
         path,
     )
+}
+
+/// Collected data for the opt-in "Technical details" panel. All fields are
+/// *raw* (unescaped) — escaping happens in [`technical_overlay`], called from
+/// [`page`], so every value gets the same treatment as the normal headers.
+#[derive(Default)]
+struct TechnicalInfo {
+    /// Every header verbatim, `(name, value)`, in file order. For `.eml` these
+    /// come from the message; for `.msg` from the preserved transport headers.
+    headers: Vec<(String, String)>,
+    /// Heading for the structure section ("MIME structure" / "MAPI properties").
+    structure_title: &'static str,
+    /// Structure rows: `(indent depth, description)`.
+    structure: Vec<(usize, String)>,
+    /// Key metadata rows: `(label, value)`.
+    meta: Vec<(String, String)>,
+    /// Raw RFC 822 source ("View source"), `.eml` only. `None` for `.msg`,
+    /// whose headers section already shows the transport headers.
+    source: Option<String>,
+}
+
+/// Gather the technical view for an `.eml` message.
+fn collect_eml_technical(msg: &Message, bytes: &[u8]) -> TechnicalInfo {
+    let headers = msg
+        .headers_raw()
+        .map(|(n, v)| (n.to_string(), v.trim().to_string()))
+        .collect();
+
+    let mut structure = Vec::new();
+    walk_mime(msg, 0, 0, &mut structure);
+
+    let mut meta = Vec::new();
+    if let Some(id) = msg.message_id() {
+        meta.push(("Message-ID".to_string(), id.to_string()));
+    }
+    if let Some(d) = msg.date() {
+        meta.push(("Date".to_string(), d.to_rfc822()));
+    }
+    meta.push(("Size".to_string(), human_bytes(bytes.len() as u64)));
+    meta.push(("MIME parts".to_string(), msg.parts.len().to_string()));
+    meta.push(("Attachments".to_string(), msg.attachments.len().to_string()));
+
+    TechnicalInfo {
+        headers,
+        structure_title: "MIME structure",
+        structure,
+        meta,
+        source: Some(String::from_utf8_lossy(bytes).into_owned()),
+    }
+}
+
+/// Gather the technical view for an Outlook `.msg`.
+fn collect_msg_technical(m: &crate::msg::Msg, bytes: &[u8]) -> TechnicalInfo {
+    let tech = crate::msg::technical(bytes);
+
+    let headers = tech
+        .transport_headers
+        .as_deref()
+        .map(parse_header_block)
+        .unwrap_or_default();
+
+    let structure = tech
+        .properties
+        .iter()
+        .map(|(label, detail)| (0, format!("{label} — {detail}")))
+        .collect();
+
+    let mut meta = Vec::new();
+    meta.push(("Size".to_string(), human_bytes(bytes.len() as u64)));
+    meta.push(("Attachments".to_string(), m.attachments.len().to_string()));
+    meta.push((
+        "Recipient storages".to_string(),
+        tech.recipient_count.to_string(),
+    ));
+    meta.push((
+        "Attachment storages".to_string(),
+        tech.attachment_count.to_string(),
+    ));
+    meta.push((
+        "Original headers".to_string(),
+        if tech.transport_headers.is_some() {
+            "present"
+        } else {
+            "not stored in this .msg"
+        }
+        .to_string(),
+    ));
+
+    TechnicalInfo {
+        headers,
+        structure_title: "MAPI properties",
+        structure,
+        meta,
+        source: None,
+    }
+}
+
+/// Walk the MIME part tree depth-first, appending one `(depth, description)`
+/// row per part. Recurses into multipart children and nested RFC 822 messages.
+fn walk_mime(msg: &Message, idx: usize, depth: usize, out: &mut Vec<(usize, String)>) {
+    let Some(part) = msg.parts.get(idx) else {
+        return;
+    };
+    let ctype = part
+        .content_type()
+        .map(|ct| match ct.subtype() {
+            Some(sub) => format!("{}/{}", ct.ctype(), sub),
+            None => ct.ctype().to_string(),
+        })
+        .unwrap_or_else(|| "(no content-type)".to_string());
+    let enc = match part.encoding {
+        Encoding::None => "7bit",
+        Encoding::QuotedPrintable => "quoted-printable",
+        Encoding::Base64 => "base64",
+    };
+    let extra = match &part.body {
+        PartType::Multipart(children) => format!("{} parts", children.len()),
+        PartType::Message(_) => "nested message".to_string(),
+        other => human_bytes(other.len() as u64),
+    };
+    let desc = match part.attachment_name() {
+        Some(name) => format!("{ctype} — {extra}, {enc} — {name}"),
+        None => format!("{ctype} — {extra}, {enc}"),
+    };
+    out.push((depth, desc));
+
+    match &part.body {
+        PartType::Multipart(children) => {
+            for &child in children {
+                walk_mime(msg, child as usize, depth + 1, out);
+            }
+        }
+        PartType::Message(inner) => walk_mime(inner, 0, depth + 1, out),
+        _ => {}
+    }
+}
+
+/// Parse an RFC 822 header block into `(name, value)` pairs, unfolding
+/// continuation lines. Stops at the first blank line (end of headers). Used for
+/// the transport headers preserved inside a `.msg`.
+fn parse_header_block(raw: &str) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for line in raw.split('\n') {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line.is_empty() {
+            break;
+        }
+        if line.starts_with(' ') || line.starts_with('\t') {
+            if let Some(last) = out.last_mut() {
+                last.1.push('\n');
+                last.1.push_str(line);
+            }
+            continue;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            out.push((name.trim().to_string(), value.trim_start().to_string()));
+        }
+    }
+    out
 }
 
 /// External links used by the About panel. These are our own fixed URLs — the
@@ -154,11 +328,35 @@ const CHROME_CSS: &str = "
 .about-card .links{font-size:12px;color:var(--muted);}
 .about-card .links a{color:var(--accent);text-decoration:none;}
 .about-card .close{position:absolute;top:8px;right:14px;color:var(--muted);text-decoration:none;font-size:20px;line-height:1;}
+.tech-overlay{position:fixed;inset:0;display:none;z-index:60;}
+.tech-overlay:target{display:block;}
+.tech-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.tech-card{position:relative;margin:24px auto;max-width:880px;width:92%;max-height:calc(100vh - 48px);overflow:auto;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+.tech-card h2{margin:0 0 4px;color:var(--accent);font-size:17px;}
+.tech-card h3{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;}
+.tech-card .close{position:absolute;top:10px;right:16px;color:var(--muted);text-decoration:none;font-size:22px;line-height:1;}
+.tech-card table.kv{border-collapse:collapse;width:100%;}
+.tech-card table.kv th{text-align:left;vertical-align:top;padding:2px 12px 2px 0;color:var(--muted);font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card table.kv td{padding:2px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-word;white-space:pre-wrap;}
+.tech-card ol,.tech-card ul{margin:0;padding-left:22px;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card ul.mime-tree{list-style:none;padding-left:4px;}
+.tech-card li{padding:2px 0;word-break:break-word;}
+.tech-card pre.src{background:var(--card-soft);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:360px;font-size:12px;white-space:pre-wrap;word-break:break-word;}
+.tech-card .none{color:var(--muted);font-size:12px;}
 ";
 
 /// The top app bar: brand plus the always-available Open / About menu items.
-fn app_bar() -> &'static str {
-    r##"<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#about">About</a></span></nav>"##
+/// On a rendered message (`technical == true`) it also offers the opt-in
+/// "Technical" panel; the welcome screen has no message, so it omits it.
+fn app_bar(technical: bool) -> String {
+    let tech = if technical {
+        r##"<a href="#technical">Technical</a> "##
+    } else {
+        ""
+    };
+    format!(
+        r##"<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> {tech}<a href="#about">About</a></span></nav>"##
+    )
 }
 
 /// The About overlay (shown via the CSS `:target` selector — no scripts). The
@@ -171,6 +369,98 @@ fn about_overlay() -> String {
         coffee = COFFEE_URL,
         github = GITHUB_URL,
         site = SITE_URL,
+    )
+}
+
+/// The opt-in "Technical details" overlay (shown via the CSS `:target`
+/// selector — no scripts, like About). Everything here is HTML-escaped: this
+/// is the single place the raw [`TechnicalInfo`] values become markup, so the
+/// no-remote-content / no-script guarantees hold for the panel too.
+fn technical_overlay(info: &TechnicalInfo) -> String {
+    let esc = |s: &str| html_escape::encode_text(s).into_owned();
+    let kv_table = |rows: &[(String, String)]| -> String {
+        let body: String = rows
+            .iter()
+            .map(|(k, v)| format!("<tr><th>{}</th><td>{}</td></tr>", esc(k), esc(v)))
+            .collect();
+        format!(r#"<table class="kv">{body}</table>"#)
+    };
+
+    let meta_html = kv_table(&info.meta);
+
+    // Delivery path: Received headers appear most-recent-first in the file, so
+    // reverse them to read oldest → newest.
+    let received: Vec<&(String, String)> = info
+        .headers
+        .iter()
+        .filter(|(n, _)| n.eq_ignore_ascii_case("received"))
+        .collect();
+    let routing_html = if received.is_empty() {
+        r#"<p class="none">No Received headers.</p>"#.to_string()
+    } else {
+        let items: String = received
+            .iter()
+            .rev()
+            .map(|(_, v)| format!("<li>{}</li>", esc(v)))
+            .collect();
+        format!("<ol>{items}</ol>")
+    };
+
+    let auth: Vec<&(String, String)> = info
+        .headers
+        .iter()
+        .filter(|(n, _)| {
+            let n = n.to_ascii_lowercase();
+            n == "authentication-results"
+                || n == "received-spf"
+                || n == "arc-authentication-results"
+                || n == "dkim-signature"
+        })
+        .collect();
+    let auth_html = if auth.is_empty() {
+        r#"<p class="none">No authentication headers.</p>"#.to_string()
+    } else {
+        let body: String = auth
+            .iter()
+            .map(|(k, v)| format!("<tr><th>{}</th><td>{}</td></tr>", esc(k), esc(v)))
+            .collect();
+        format!(r#"<table class="kv">{body}</table>"#)
+    };
+
+    let structure_html = if info.structure.is_empty() {
+        r#"<p class="none">—</p>"#.to_string()
+    } else {
+        let items: String = info
+            .structure
+            .iter()
+            .map(|(depth, text)| {
+                let indent = "&nbsp;".repeat(depth * 3);
+                format!("<li>{indent}{}</li>", esc(text))
+            })
+            .collect();
+        format!(r#"<ul class="mime-tree">{items}</ul>"#)
+    };
+
+    let headers_html = if info.headers.is_empty() {
+        r#"<p class="none">No headers available.</p>"#.to_string()
+    } else {
+        kv_table(&info.headers)
+    };
+
+    let source_html = info
+        .source
+        .as_ref()
+        .map(|s| {
+            format!(
+                r#"<h3>Raw source</h3><pre class="src">{}</pre>"#,
+                esc(&truncate_lossy(s, MAX_SOURCE_BYTES))
+            )
+        })
+        .unwrap_or_default();
+
+    format!(
+        r##"<div id="technical" class="tech-overlay"><a href="#" class="tech-backdrop" aria-label="Close"></a><div class="tech-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>Technical details</h2><h3>Metadata</h3>{meta_html}<h3>{struct_title}</h3>{structure_html}<h3>Delivery path (oldest first)</h3>{routing_html}<h3>Authentication</h3>{auth_html}<h3>All headers</h3>{headers_html}{source_html}</div></div>"##,
+        struct_title = esc(info.structure_title),
     )
 }
 
@@ -225,7 +515,7 @@ body {{ font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; backgro
 </body>
 </html>"#,
         chrome_css = CHROME_CSS,
-        app_bar = app_bar(),
+        app_bar = app_bar(false),
         about_overlay = about_overlay(),
     )
 }
@@ -243,6 +533,7 @@ fn page(
     body_html: Option<String>,
     body_text: Option<String>,
     attachments: &[AttachmentMeta],
+    technical: &TechnicalInfo,
     path: &Path,
 ) -> String {
     let body_section = match (body_html, body_text) {
@@ -346,6 +637,7 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
 {about_overlay}
+{technical_overlay}
 </body>
 </html>"#,
         subject_title = html_escape::encode_text(subject),
@@ -355,8 +647,9 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         path_str = html_escape::encode_text(&path_str),
         path_attr = html_escape::encode_double_quoted_attribute(&path_str),
         chrome_css = CHROME_CSS,
-        app_bar = app_bar(),
+        app_bar = app_bar(true),
         about_overlay = about_overlay(),
+        technical_overlay = technical_overlay(technical),
     )
 }
 
@@ -720,6 +1013,63 @@ mod tests {
         let out = inline_cid_images(html, &images);
         assert!(out.contains("data:image/png;base64,AQID"));
         assert!(out.contains("cid:other"));
+    }
+
+    #[test]
+    fn parse_header_block_unfolds_continuations() {
+        let raw = "Received: from a.example\r\n\tby b.example\r\nSubject: hi\r\n\r\nbody here";
+        let headers = parse_header_block(raw);
+        assert_eq!(headers.len(), 2);
+        assert_eq!(headers[0].0, "Received");
+        assert!(headers[0].1.contains("from a.example"));
+        assert!(headers[0].1.contains("by b.example")); // folded line joined
+        assert_eq!(headers[1], ("Subject".to_string(), "hi".to_string()));
+        // Stops at the blank line — the body is not parsed as a header.
+        assert!(!headers.iter().any(|(_, v)| v.contains("body here")));
+    }
+
+    #[test]
+    fn technical_panel_present_on_eml_with_headers_and_source() {
+        let eml = b"From: alice@example.com\r\n\
+                    To: bob@example.com\r\n\
+                    Received: from mx.example by host.example\r\n\
+                    Authentication-Results: mx.example; spf=pass\r\n\
+                    Message-ID: <abc@example.com>\r\n\
+                    Subject: Hi\r\n\
+                    \r\n\
+                    the body\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        // Panel scaffolding + section headings.
+        assert!(html.contains(r#"id="technical""#));
+        assert!(html.contains("Technical details"));
+        assert!(html.contains("All headers"));
+        assert!(html.contains("MIME structure"));
+        assert!(html.contains("Delivery path"));
+        // Real data surfaced.
+        assert!(html.contains("Authentication-Results"));
+        assert!(html.contains("spf=pass"));
+        assert!(html.contains("&lt;abc@example.com&gt;")); // Message-ID, escaped
+        assert!(html.contains("Raw source"));
+        // The app bar exposes the panel.
+        assert!(html.contains(r##"href="#technical""##));
+    }
+
+    #[test]
+    fn technical_panel_escapes_hostile_source() {
+        // A script tag in the raw source must not survive into the outer page.
+        let eml = b"From: a@b\r\nSubject: t\r\nContent-Type: text/html\r\n\r\n<script>evil()</script>\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        assert!(!html.to_ascii_lowercase().contains("<script"));
+        // The raw source pre-block still shows the (escaped) markup.
+        assert!(html.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn welcome_bar_has_no_technical_link() {
+        // The welcome screen has no message, so it must not offer the panel.
+        let html = render_welcome_html();
+        assert!(!html.contains(r##"href="#technical""##));
+        assert!(!html.contains(r#"id="technical""#));
     }
 
     #[test]

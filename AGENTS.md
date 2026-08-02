@@ -192,10 +192,13 @@ smoke test.
 
 ## 8. Current state (update this section as work lands)
 
-- **Version:** approaching **1.0.0** (last release 0.9.0). Features shipped
+- **Version:** **1.0.0** released; `main` is on the 1.0.x line. Features shipped
   since 0.5.0: `.msg`/`.oft` support, attachment save + nested-message open,
   inline `cid:` images, opt-in + on-demand update check, welcome screen with
-  drag-drop + About menu, window icon, per-process WebView2 data folder.
+  drag-drop + About menu, window icon, per-process WebView2 data folder, and the
+  opt-in **technical details** panel (`#technical` overlay). On Linux the
+  `.desktop` entry + a shared-mime-info file (`assets/inlook.xml`) register both
+  `application/vnd.ms-outlook` (`.msg`/`.oft`) and the `.eml` types.
 - **Deps:** `tao` is on **0.35** (the multi-major jump built cleanly with wry
   0.45 — they're decoupled via `raw-window-handle`; verified GUI at runtime).
   `wry` stays at 0.45 (bumping to 0.55 is a separate, larger API migration —
@@ -205,22 +208,14 @@ smoke test.
 ## 9. Roadmap / ideas (not yet built)
 
 Prioritised, viewer-appropriate features:
-1. **Power-user / technical view** — an opt-in panel for people who want the
-   plumbing, not just the rendered message. Off by default so the normal view
-   stays clean; toggled from the app bar (and pure-CSS, no scripts, like the
-   About overlay). Should surface:
-   - **All headers** verbatim, plus the **raw RFC 822 source** ("View source").
-   - **Routing** — the `Received:` hop chain, parsed and in delivery order.
-   - **Authentication results** — SPF / DKIM / DMARC pass/fail from
-     `Authentication-Results` / `Received-SPF` (display only, no revalidation).
-   - **MIME structure** — the part tree with content-types, encodings, sizes;
-     for `.msg`, the parsed MAPI properties / named streams.
-   - **Metadata** — message size, dates (Date vs Received), Message-ID.
-   Keep everything HTML-escaped and offline; this is inspection, not action.
-2. **Plain-text ↔ HTML toggle** when both parts exist.
+1. **Plain-text ↔ HTML toggle** when both parts exist.
 
 (Shipped, formerly on this list: save/open attachments, inline `cid:` images,
-drag-and-drop + multi-file open — see section 8 / CHANGELOG.)
+drag-and-drop + multi-file open, and the **power-user / technical view** — an
+opt-in `#technical` overlay (pure-CSS, no scripts, HTML-escaped, offline) with
+metadata, MIME structure / MAPI properties, the `Received:` delivery path,
+authentication results, all headers verbatim, and a size-capped raw source.
+See section 8 / CHANGELOG.)
 
 When you pick one up, add a test, follow the commit convention, and update
 sections 8–9 here.

@@ -73,11 +73,26 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .about-card .links{font-size:12px;color:var(--muted);}
 .about-card .links a{color:var(--accent);text-decoration:none;}
 .about-card .close{position:absolute;top:8px;right:14px;color:var(--muted);text-decoration:none;font-size:20px;line-height:1;}
+.tech-overlay{position:fixed;inset:0;display:none;z-index:60;}
+.tech-overlay:target{display:block;}
+.tech-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.tech-card{position:relative;margin:24px auto;max-width:880px;width:92%;max-height:calc(100vh - 48px);overflow:auto;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+.tech-card h2{margin:0 0 4px;color:var(--accent);font-size:17px;}
+.tech-card h3{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;}
+.tech-card .close{position:absolute;top:10px;right:16px;color:var(--muted);text-decoration:none;font-size:22px;line-height:1;}
+.tech-card table.kv{border-collapse:collapse;width:100%;}
+.tech-card table.kv th{text-align:left;vertical-align:top;padding:2px 12px 2px 0;color:var(--muted);font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card table.kv td{padding:2px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-word;white-space:pre-wrap;}
+.tech-card ol,.tech-card ul{margin:0;padding-left:22px;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card ul.mime-tree{list-style:none;padding-left:4px;}
+.tech-card li{padding:2px 0;word-break:break-word;}
+.tech-card pre.src{background:var(--card-soft);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:360px;font-size:12px;white-space:pre-wrap;word-break:break-word;}
+.tech-card .none{color:var(--muted);font-size:12px;}
 
 </style>
 </head>
 <body>
-<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#about">About</a></span></nav>
+<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#technical">Technical</a> <a href="#about">About</a></span></nav>
 <header>
   <div class="brand">Struis ICT — Free Software</div>
   <h1>&lt;script&gt;document.title&lt;/script&gt; hostile msg</h1>
@@ -99,5 +114,6 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
 <div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version <VERSION> &middot; Free Software</div><a class="check-update" href="inlook://check-update">Check for updates</a><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="https://buymeacoffee.com/struis112">&#9749; Buy me a coffee</a><div class="links"><a href="https://github.com/StruisICT/InLook">GitHub</a> &middot; <a href="https://struisict.com">struisict.com</a></div></div></div>
+<div id="technical" class="tech-overlay"><a href="#" class="tech-backdrop" aria-label="Close"></a><div class="tech-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>Technical details</h2><h3>Metadata</h3><table class="kv"><tr><th>Size</th><td>20.0 KB</td></tr><tr><th>Attachments</th><td>1</td></tr><tr><th>Recipient storages</th><td>0</td></tr><tr><th>Attachment storages</th><td>1</td></tr><tr><th>Original headers</th><td>not stored in this .msg</td></tr></table><h3>MAPI properties</h3><ul class="mime-tree"><li>PR_SUBJECT (0x0037, PT_UNICODE) — "&lt;script&gt;document.title&lt;/script&gt; hostile msg"</li><li>PR_SENDER_NAME (0x0C1A, PT_UNICODE) — "&lt;img src=x onerror=alert(1)&gt;"</li><li>PR_SENDER_EMAIL_ADDRESS (0x0C1F, PT_UNICODE) — "evil@example.com"</li><li>PR_DISPLAY_TO (0x0E04, PT_UNICODE) — ""Bob" &lt;bob@example.com&gt;"</li><li>PR_HTML (0x1013, PT_BINARY) — 113 bytes</li></ul><h3>Delivery path (oldest first)</h3><p class="none">No Received headers.</p><h3>Authentication</h3><p class="none">No authentication headers.</p><h3>All headers</h3><p class="none">No headers available.</p></div></div>
 </body>
 </html>

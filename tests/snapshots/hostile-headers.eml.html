@@ -73,11 +73,26 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .about-card .links{font-size:12px;color:var(--muted);}
 .about-card .links a{color:var(--accent);text-decoration:none;}
 .about-card .close{position:absolute;top:8px;right:14px;color:var(--muted);text-decoration:none;font-size:20px;line-height:1;}
+.tech-overlay{position:fixed;inset:0;display:none;z-index:60;}
+.tech-overlay:target{display:block;}
+.tech-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.tech-card{position:relative;margin:24px auto;max-width:880px;width:92%;max-height:calc(100vh - 48px);overflow:auto;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+.tech-card h2{margin:0 0 4px;color:var(--accent);font-size:17px;}
+.tech-card h3{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;}
+.tech-card .close{position:absolute;top:10px;right:16px;color:var(--muted);text-decoration:none;font-size:22px;line-height:1;}
+.tech-card table.kv{border-collapse:collapse;width:100%;}
+.tech-card table.kv th{text-align:left;vertical-align:top;padding:2px 12px 2px 0;color:var(--muted);font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card table.kv td{padding:2px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-word;white-space:pre-wrap;}
+.tech-card ol,.tech-card ul{margin:0;padding-left:22px;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card ul.mime-tree{list-style:none;padding-left:4px;}
+.tech-card li{padding:2px 0;word-break:break-word;}
+.tech-card pre.src{background:var(--card-soft);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:360px;font-size:12px;white-space:pre-wrap;word-break:break-word;}
+.tech-card .none{color:var(--muted);font-size:12px;}
 
 </style>
 </head>
 <body>
-<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#about">About</a></span></nav>
+<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#technical">Technical</a> <a href="#about">About</a></span></nav>
 <header>
   <div class="brand">Struis ICT — Free Software</div>
   <h1>&lt;script&gt;document.title&lt;/script&gt; ☠️ naïve résumé</h1>
@@ -99,5 +114,13 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
 <div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version <VERSION> &middot; Free Software</div><a class="check-update" href="inlook://check-update">Check for updates</a><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="https://buymeacoffee.com/struis112">&#9749; Buy me a coffee</a><div class="links"><a href="https://github.com/StruisICT/InLook">GitHub</a> &middot; <a href="https://struisict.com">struisict.com</a></div></div></div>
+<div id="technical" class="tech-overlay"><a href="#" class="tech-backdrop" aria-label="Close"></a><div class="tech-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>Technical details</h2><h3>Metadata</h3><table class="kv"><tr><th>Date</th><td>Mon, 11 May 2026 23:59:59 -0700</td></tr><tr><th>Size</th><td>311 B</td></tr><tr><th>MIME parts</th><td>1</td></tr><tr><th>Attachments</th><td>0</td></tr></table><h3>MIME structure</h3><ul class="mime-tree"><li>text/plain — 53 B, 7bit</li></ul><h3>Delivery path (oldest first)</h3><p class="none">No Received headers.</p><h3>Authentication</h3><p class="none">No authentication headers.</p><h3>All headers</h3><table class="kv"><tr><th>From</th><td>"&lt;img src=x onerror=alert(1)&gt;" &lt;evil@example.com&gt;</td></tr><tr><th>To</th><td>"Bob \"quoted\"" &lt;bob@example.com&gt;</td></tr><tr><th>Subject</th><td>&lt;script&gt;document.title&lt;/script&gt; =?utf-8?B?4pig77iP?= naïve résumé</td></tr><tr><th>Date</th><td>Sun, 11 May 2026 23:59:59 -0700</td></tr><tr><th>Content-Type</th><td>text/plain; charset=utf-8</td></tr></table><h3>Raw source</h3><pre class="src">From: "&lt;img src=x onerror=alert(1)&gt;" &lt;evil@example.com&gt;
+To: "Bob \"quoted\"" &lt;bob@example.com&gt;
+Subject: &lt;script&gt;document.title&lt;/script&gt; =?utf-8?B?4pig77iP?= naïve résumé
+Date: Sun, 11 May 2026 23:59:59 -0700
+Content-Type: text/plain; charset=utf-8
+
+body with &lt;tags&gt; &amp; "quotes" and unicode: cafeé ☃
+</pre></div></div>
 </body>
 </html>
