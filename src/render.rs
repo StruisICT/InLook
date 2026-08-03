@@ -239,9 +239,21 @@ fn collect_msg_technical(m: &crate::msg::Msg, bytes: &[u8]) -> TechnicalInfo {
     }
 }
 
+/// Depth and row caps for [`walk_mime`]. A crafted email can nest multiparts
+/// (or `message/rfc822` parts) thousands deep or list a huge number of parts;
+/// unbounded recursion overflows the stack (a real fuzzer find), and unbounded
+/// rows would balloon the page. Real messages nest only a handful deep, so
+/// these limits never bite legitimate mail — they just stop hostile input.
+const MAX_MIME_DEPTH: usize = 64;
+const MAX_MIME_ROWS: usize = 2000;
+
 /// Walk the MIME part tree depth-first, appending one `(depth, description)`
-/// row per part. Recurses into multipart children and nested RFC 822 messages.
+/// row per part. Recurses into multipart children and nested RFC 822 messages,
+/// bounded by [`MAX_MIME_DEPTH`] / [`MAX_MIME_ROWS`] against hostile nesting.
 fn walk_mime(msg: &Message, idx: usize, depth: usize, out: &mut Vec<(usize, String)>) {
+    if out.len() >= MAX_MIME_ROWS {
+        return;
+    }
     let Some(part) = msg.parts.get(idx) else {
         return;
     };
@@ -268,9 +280,21 @@ fn walk_mime(msg: &Message, idx: usize, depth: usize, out: &mut Vec<(usize, Stri
     };
     out.push((depth, desc));
 
+    // Stop descending at the depth cap — deeper nesting is hostile, not real
+    // mail — so the recursion can never overflow the stack.
+    if depth >= MAX_MIME_DEPTH {
+        if matches!(part.body, PartType::Multipart(_) | PartType::Message(_)) {
+            out.push((depth + 1, "…(deeper nesting not shown)".to_string()));
+        }
+        return;
+    }
+
     match &part.body {
         PartType::Multipart(children) => {
             for &child in children {
+                if out.len() >= MAX_MIME_ROWS {
+                    break;
+                }
                 walk_mime(msg, child as usize, depth + 1, out);
             }
         }
@@ -1062,6 +1086,30 @@ mod tests {
         assert!(!html.to_ascii_lowercase().contains("<script"));
         // The raw source pre-block still shows the (escaped) markup.
         assert!(html.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn deeply_nested_multipart_does_not_overflow_the_stack() {
+        // Regression for a fuzzer-found stack overflow: the technical panel's
+        // MIME walk recursed once per nesting level, so a crafted email with
+        // thousands of nested multiparts blew the stack. Build 1000 nested
+        // multipart/mixed parts and assert we render fine and cap the depth.
+        let mut body = "the innermost body\r\n".to_string();
+        let mut ct = "text/plain; charset=utf-8".to_string();
+        for i in 0..1000 {
+            let b = format!("B{i}");
+            body = format!("--{b}\r\nContent-Type: {ct}\r\n\r\n{body}\r\n--{b}--\r\n");
+            ct = format!("multipart/mixed; boundary=\"{b}\"");
+        }
+        let eml = format!(
+            "From: a@b\r\nSubject: deep\r\nMIME-Version: 1.0\r\nContent-Type: {ct}\r\n\r\n{body}"
+        );
+
+        // The call itself must not overflow the stack…
+        let html = render_eml_to_html(eml.as_bytes(), &PathBuf::from("deep.eml"));
+        // …and the depth cap is visibly applied rather than dumping 1000 rows.
+        assert!(html.contains("deeper nesting not shown"));
+        assert!(!html.to_ascii_lowercase().contains("<script"));
     }
 
     #[test]
