@@ -339,6 +339,11 @@ const CHROME_CSS: &str = "
 .appbar .brand-app{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em;}
 .appbar .actions a{color:var(--fg);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px;}
 .appbar .actions a:hover{background:var(--card-soft);}
+.appbar .actions a.tech-btn{color:var(--accent);border:1px solid var(--accent);}
+.appbar .actions a.tech-btn:hover{background:var(--accent);color:var(--card);}
+.tech-open{margin-top:14px;}
+.tech-open a{display:inline-block;font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;}
+.tech-open a:hover{background:var(--accent);color:var(--card);}
 .about-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;}
 .about-overlay:target{display:flex;}
 .about-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);}
@@ -374,7 +379,7 @@ const CHROME_CSS: &str = "
 /// "Technical" panel; the welcome screen has no message, so it omits it.
 fn app_bar(technical: bool) -> String {
     let tech = if technical {
-        r##"<a href="#technical">Technical</a> "##
+        r##"<a class="tech-btn" href="#technical">&#9881; Technical</a> "##
     } else {
         ""
     };
@@ -653,6 +658,7 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
     {cc_row}
     <tr><th>Date</th><td>{date}</td></tr>
   </table>
+  {tech_open}
 </header>
 <section class="body-wrap">{body_section}</section>
 {attachments_section}
@@ -674,8 +680,16 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         app_bar = app_bar(true),
         about_overlay = about_overlay(),
         technical_overlay = technical_overlay(technical),
+        tech_open = TECH_OPEN_BUTTON,
     )
 }
+
+/// The contextual "Technical details" button rendered under the header block,
+/// alongside the app-bar button — both open the `#technical` overlay. Kept as a
+/// separate literal because its `"#technical"` fragment can't sit inside
+/// [`page`]'s `r#"…"#` template (the `"#` would close the raw string).
+const TECH_OPEN_BUTTON: &str =
+    r##"<div class="tech-open"><a href="#technical">&#9881; Technical details</a></div>"##;
 
 /// Attachment list with action links. The `inlook://save/N` and
 /// `inlook://open/N` pseudo-URLs are intercepted by the binary's navigation
@@ -1074,8 +1088,10 @@ mod tests {
         assert!(html.contains("spf=pass"));
         assert!(html.contains("&lt;abc@example.com&gt;")); // Message-ID, escaped
         assert!(html.contains("Raw source"));
-        // The app bar exposes the panel.
-        assert!(html.contains(r##"href="#technical""##));
+        // Both affordances open the panel: the styled app-bar button and the
+        // contextual button under the headers.
+        assert!(html.contains(r##"class="tech-btn" href="#technical""##));
+        assert!(html.contains(r##"<div class="tech-open"><a href="#technical">"##));
     }
 
     #[test]
