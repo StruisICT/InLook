@@ -208,10 +208,12 @@ pub fn technical(bytes: &[u8]) -> MsgTechnical {
         let Some(tag) = name.strip_prefix("__substg1.0_") else {
             continue;
         };
-        if tag.len() < 8 {
+        // A hostile .msg can name streams with multibyte characters, so slice
+        // via `get` (char-boundary-safe) rather than `tag[0..4]` which would
+        // panic mid-character. A real MAPI tag is 8 ASCII hex digits.
+        let (Some(id), Some(ty)) = (tag.get(0..4), tag.get(4..8)) else {
             continue;
-        }
-        let (id, ty) = (&tag[0..4], &tag[4..8]);
+        };
         let tyname = prop_type_name(ty);
         let pname = prop_name(id);
         let ty_label = if tyname.is_empty() {
@@ -465,6 +467,35 @@ mod tests {
         let t = technical(b"\xD0\xCF\x11\xE0 not a real cfb");
         assert!(t.transport_headers.is_none());
         assert!(t.properties.is_empty());
+    }
+
+    #[test]
+    fn technical_survives_multibyte_stream_names() {
+        // Regression for a fuzzer-found panic: a hostile .msg named a property
+        // stream so a multibyte char straddled the tag slice boundary, and
+        // byte-indexing `tag[0..4]` panicked. The malformed stream must be
+        // skipped, not crash, while a valid property still lists.
+        use std::io::Write;
+        let u16le = |s: &str| -> Vec<u8> { s.encode_utf16().flat_map(u16::to_le_bytes).collect() };
+        let mut cf = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        cf.create_stream("/__substg1.0_abc\u{6e65}xyz")
+            .unwrap()
+            .write_all(b"x")
+            .unwrap();
+        cf.create_stream("/__substg1.0_0037001F")
+            .unwrap()
+            .write_all(&u16le("Hi"))
+            .unwrap();
+        cf.flush().unwrap();
+        let bytes = cf.into_inner().into_inner();
+
+        let t = technical(&bytes); // must not panic
+        assert!(t
+            .properties
+            .iter()
+            .any(|(l, _)| l.starts_with("PR_SUBJECT ")));
+        // The full render entry point must be panic-free on this input too.
+        let _ = crate::render::render_file_to_html(&bytes, std::path::Path::new("x.msg"));
     }
 
     #[test]
