@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/StruisICT/InLook/compare/v1.0.0...v1.1.0) (2026-08-03)
+
+
+### Features
+
+* opt-in technical details panel (+ Linux .msg registration fix) ([#79](https://github.com/StruisICT/InLook/issues/79)) ([7fcb6dc](https://github.com/StruisICT/InLook/commit/7fcb6dcc2534162fb48118e0e4796a6be44d903f))
+
 ## [1.0.0](https://github.com/StruisICT/InLook/compare/v0.9.0...v1.0.0) (2026-07-21)
 
 
