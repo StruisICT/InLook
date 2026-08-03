@@ -65,6 +65,7 @@ priority = "optional"
 assets = [
     ["target/release/inlook", "usr/bin/", "755"],
     ["assets/inlook.desktop", "usr/share/applications/", "644"],
+    ["assets/inlook.xml", "usr/share/mime/packages/", "644"],
     ["LICENSE-MIT", "usr/share/doc/inlook/", "644"],
     ["LICENSE-APACHE", "usr/share/doc/inlook/", "644"],
     ["assets/icons/inlook-16.png",   "usr/share/icons/hicolor/16x16/apps/inlook.png",   "644"],

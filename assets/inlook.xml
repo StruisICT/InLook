@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared MIME-info for InLook. `application/vnd.ms-outlook` is already the
+  standard type for Outlook .msg files in the freedesktop database; this
+  package file extends it to also cover .oft templates, so file managers
+  reliably route both to InLook (see inlook.desktop). Installed to
+  /usr/share/mime/packages/ where the shared-mime-info dpkg trigger rebuilds
+  the MIME database on install.
+
+  Deliberately no <magic>: the OLE compound-file signature (D0 CF 11 E0…) is
+  shared by all legacy Office formats (.doc/.xls/.ppt), so claiming it here
+  would misdetect those as Outlook messages. Extension globs are correct and
+  sufficient — the message itself is only opened when the user picks it.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.ms-outlook">
+    <comment>Outlook message</comment>
+    <glob pattern="*.msg"/>
+    <glob pattern="*.oft"/>
+  </mime-type>
+</mime-info>
