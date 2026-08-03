@@ -339,9 +339,7 @@ const CHROME_CSS: &str = "
 .appbar .brand-app{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em;}
 .appbar .actions a{color:var(--fg);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px;}
 .appbar .actions a:hover{background:var(--card-soft);}
-.appbar .actions a.tech-btn{color:var(--accent);border:1px solid var(--accent);}
-.appbar .actions a.tech-btn:hover{background:var(--accent);color:var(--card);}
-.tech-open{margin-top:14px;}
+.tech-open{margin:0 0 14px;}
 .tech-open a{display:inline-block;font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;}
 .tech-open a:hover{background:var(--accent);color:var(--card);}
 .about-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;}
@@ -375,17 +373,10 @@ const CHROME_CSS: &str = "
 ";
 
 /// The top app bar: brand plus the always-available Open / About menu items.
-/// On a rendered message (`technical == true`) it also offers the opt-in
-/// "Technical" panel; the welcome screen has no message, so it omits it.
-fn app_bar(technical: bool) -> String {
-    let tech = if technical {
-        r##"<a class="tech-btn" href="#technical">&#9881; Technical</a> "##
-    } else {
-        ""
-    };
-    format!(
-        r##"<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> {tech}<a href="#about">About</a></span></nav>"##
-    )
+/// The Technical panel is opened from a button in the message view itself
+/// (see [`TECH_OPEN_BUTTON`]), so the bar stays to just Open and About.
+fn app_bar() -> &'static str {
+    r##"<nav class="appbar"><span class="brand-app">&#9993; InLook</span><span class="actions"><a href="inlook://browse">Open</a> <a href="#about">About</a></span></nav>"##
 }
 
 /// The About overlay (shown via the CSS `:target` selector — no scripts). The
@@ -544,7 +535,7 @@ body {{ font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; backgro
 </body>
 </html>"#,
         chrome_css = CHROME_CSS,
-        app_bar = app_bar(false),
+        app_bar = app_bar(),
         about_overlay = about_overlay(),
     )
 }
@@ -652,13 +643,13 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
 <header>
   <div class="brand">{brand}</div>
   <h1>{subject}</h1>
+  {tech_open}
   <table class="headers">
     <tr><th>From</th><td>{from}</td></tr>
     <tr><th>To</th><td>{to}</td></tr>
     {cc_row}
     <tr><th>Date</th><td>{date}</td></tr>
   </table>
-  {tech_open}
 </header>
 <section class="body-wrap">{body_section}</section>
 {attachments_section}
@@ -677,7 +668,7 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         path_str = html_escape::encode_text(&path_str),
         path_attr = html_escape::encode_double_quoted_attribute(&path_str),
         chrome_css = CHROME_CSS,
-        app_bar = app_bar(true),
+        app_bar = app_bar(),
         about_overlay = about_overlay(),
         technical_overlay = technical_overlay(technical),
         tech_open = TECH_OPEN_BUTTON,
@@ -1088,10 +1079,10 @@ mod tests {
         assert!(html.contains("spf=pass"));
         assert!(html.contains("&lt;abc@example.com&gt;")); // Message-ID, escaped
         assert!(html.contains("Raw source"));
-        // Both affordances open the panel: the styled app-bar button and the
-        // contextual button under the headers.
-        assert!(html.contains(r##"class="tech-btn" href="#technical""##));
+        // The panel is opened from the in-view button (after the subject), and
+        // the app bar no longer carries a Technical link.
         assert!(html.contains(r##"<div class="tech-open"><a href="#technical">"##));
+        assert!(!html.contains(r##"class="tech-btn""##));
     }
 
     #[test]
