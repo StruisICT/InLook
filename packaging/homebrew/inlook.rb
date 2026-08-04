@@ -4,8 +4,8 @@
 # Source of truth: this file in the InLook repo. The StruisICT/homebrew-tap
 # repo mirrors it at Casks/inlook.rb.
 cask "inlook" do
-  version "1.0.0"
-  sha256 "ff093ebac40c3dd59b6a42851365f178c6ce6978c13607aecd4e20ed81f16c80"
+  version "1.1.0"
+  sha256 "d7fbee3fe44bf8bbfd30ad4346317314564f80196814d8ebe337ac9c6429773f"
 
   url "https://github.com/StruisICT/InLook/releases/download/v#{version}/InLook-#{version}-universal.dmg"
   name "InLook"
