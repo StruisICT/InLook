@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/StruisICT/InLook/compare/v1.1.1...v1.1.2) (2026-08-21)
+
+
+### Miscellaneous Chores
+
+* hardening for 1.1.2 — technical-panel tests, dependabot ignore, AGENTS ([#99](https://github.com/StruisICT/InLook/issues/99)) ([d33fd61](https://github.com/StruisICT/InLook/commit/d33fd617ac5e321c1b29e857af77c2754992ebf6))
+
 ## [1.1.1](https://github.com/StruisICT/InLook/compare/v1.1.0...v1.1.1) (2026-08-07)
 
 
