@@ -1096,6 +1096,43 @@ mod tests {
     }
 
     #[test]
+    fn received_delivery_path_is_oldest_first() {
+        // Received headers are prepended, so the top one is the most recent
+        // hop. The panel shows the chain oldest-first (reversed), so the
+        // bottom hop appears before the top hop in the rendered page.
+        let eml = b"From: a@b\r\n\
+                    Received: from newesthop.example by dest.example\r\n\
+                    Received: from oldesthop.example by relay.example\r\n\
+                    Subject: routed\r\n\
+                    \r\n\
+                    body\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        let oldest = html.find("oldesthop.example").expect("oldest hop present");
+        let newest = html.find("newesthop.example").expect("newest hop present");
+        assert!(
+            oldest < newest,
+            "delivery path should list the oldest hop first"
+        );
+    }
+
+    #[test]
+    fn mime_structure_recurses_into_nested_message() {
+        // The MIME tree walks into an attached message/rfc822 part and shows
+        // its inner structure, indented one level deeper than the wrapper.
+        let eml = b"From: a@b\r\nSubject: outer\r\nMIME-Version: 1.0\r\n\
+                    Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n\
+                    --B\r\nContent-Type: text/plain\r\n\r\nhello\r\n\
+                    --B\r\nContent-Type: message/rfc822\r\n\r\n\
+                    From: inner@x\r\nSubject: nested\r\nContent-Type: text/html\r\n\r\n<p>inner</p>\r\n\
+                    --B--\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        assert!(html.contains("multipart/mixed"));
+        assert!(html.contains("nested message"));
+        // The nested message's own text/html part is walked (deeper indent).
+        assert!(html.contains("text/html"));
+    }
+
+    #[test]
     fn deeply_nested_multipart_does_not_overflow_the_stack() {
         // Regression for a fuzzer-found stack overflow: the technical panel's
         // MIME walk recursed once per nesting level, so a crafted email with

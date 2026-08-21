@@ -31,3 +31,10 @@ updates:
       time: "06:00"
       timezone: Europe/Amsterdam
     open-pull-requests-limit: 5
+    # `dtolnay/rust-toolchain@1.88` is pinned to the project MSRV on purpose:
+    # the "MSRV (Rust 1.88)" job must keep testing that exact floor. Dependabot
+    # reads the pinned toolchain (1.88) as an action version and tries to bump
+    # it (e.g. #78 -> 1.100), which would silently stop MSRV testing. Ignore it;
+    # the pin moves by hand only when the declared MSRV in Cargo.toml changes.
+    ignore:
+      - dependency-name: dtolnay/rust-toolchain

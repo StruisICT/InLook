@@ -192,18 +192,24 @@ smoke test.
 
 ## 8. Current state (update this section as work lands)
 
-- **Version:** **1.0.0** released; `main` is on the 1.0.x line. Features shipped
+- **Version:** **1.1.x** released; `main` is on the 1.1.x line. Features shipped
   since 0.5.0: `.msg`/`.oft` support, attachment save + nested-message open,
   inline `cid:` images, opt-in + on-demand update check, welcome screen with
   drag-drop + About menu, window icon, per-process WebView2 data folder, and the
-  opt-in **technical details** panel (`#technical` overlay). On Linux the
-  `.desktop` entry + a shared-mime-info file (`assets/inlook.xml`) register both
-  `application/vnd.ms-outlook` (`.msg`/`.oft`) and the `.eml` types.
+  opt-in **technical details** panel — a `#technical` overlay opened from a
+  button under the subject line (headers, MIME/MAPI structure, `Received:`
+  delivery path, SPF/DKIM/DMARC, raw source). On Linux the `.desktop` entry + a
+  shared-mime-info file (`assets/inlook.xml`) register both
+  `application/vnd.ms-outlook` (`.msg`/`.oft`) and the `.eml` types. 1.1.1 fixed
+  the app icon (a transparency-preview checkerboard was baked into the artwork).
+- **Signing:** Windows/macOS builds ship **unsigned** — the SignPath Foundation
+  OSS application was declined (see `packaging/signpath/README.md`). Integrity is
+  via per-release SLSA build-provenance attestations + CycloneDX SBOM.
 - **Deps:** `tao` is on **0.35** (the multi-major jump built cleanly with wry
   0.45 — they're decoupled via `raw-window-handle`; verified GUI at runtime).
   `wry` stays at 0.45 (bumping to 0.55 is a separate, larger API migration —
-  dependabot ignores wry majors on purpose; see §7). GitHub Actions and
-  `html-escape` kept current.
+  dependabot ignores wry majors on purpose; see §7). GitHub Actions,
+  `mail-parser`, and `html-escape` kept current.
 
 ## 9. Roadmap / ideas (not yet built)
 
