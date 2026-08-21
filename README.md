@@ -45,6 +45,39 @@ Pre-built binaries are attached to each
 > **right-click → Open → Open**, or run
 > `xattr -dr com.apple.quarantine /Applications/InLook.app`.
 
+### Enterprise / IT deployment (Windows MSI)
+
+The `inlook-*.msi` is a **per-machine** installer built for mass deployment via
+Group Policy, Microsoft Intune, SCCM/Configuration Manager, PDQ Deploy, or a
+login script. It installs into `Program Files`, registers the `.eml`/`.msg`/`.oft`
+associations and Start-Menu shortcut for **all users**, and upgrades in place
+(the `UpgradeCode` never changes, so a newer MSI replaces the older version).
+
+The executable **statically links the Visual C++ runtime**, so the MSI is
+self-contained — there is **no VCRedist to deploy**. The only OS requirement is
+the **Edge WebView2 Runtime**, which is present on Windows 10/11 by default; on
+older/stripped images, push the
+[Evergreen WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+first. InLook has **no telemetry**, and its update check is per-user and
+**off by default**, so managed installs never phone home.
+
+```powershell
+# Silent per-machine install (run elevated / as SYSTEM)
+msiexec /i inlook-1.1.1-x86_64.msi /qn
+
+# …with a verbose log, for troubleshooting a rollout
+msiexec /i inlook-1.1.1-x86_64.msi /qn /l*v inlook-install.log
+
+# …to a custom directory
+msiexec /i inlook-1.1.1-x86_64.msi /qn APPLICATIONFOLDER="D:\Apps\InLook"
+
+# Silent uninstall (same MSI, or by ProductCode)
+msiexec /x inlook-1.1.1-x86_64.msi /qn
+```
+
+For deployment channels that consume it, the same version is on **winget**
+(`winget install --scope machine StruisICT.InLook`).
+
 ## Usage
 
 ```
@@ -96,17 +129,23 @@ contract is stable — breaking it requires a MAJOR bump. Releases are automated
 from [Conventional Commits](https://www.conventionalcommits.org/) via
 release-please; see [`AGENTS.md` §5.1](AGENTS.md) for the full policy.
 
-## Code signing policy
+## Build integrity & code signing
 
-Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/),
-certificate by [SignPath Foundation](https://signpath.org/).
+Every release is built from source in public GitHub Actions CI
+([`release.yml`](.github/workflows/release.yml)). Each binary ships with a
+**SLSA build-provenance attestation** and a **CycloneDX SBOM**, so you can
+verify a download was produced from this repository's source and not tampered
+with:
 
-- **Committers and reviewers:** [Struis112](https://github.com/Struis112)
-- **Approvers:** [Struis112](https://github.com/Struis112)
+```sh
+gh attestation verify inlook-<version>-x86_64.msi --repo StruisICT/InLook
+```
 
-Windows release binaries (`inlook.exe`, the `.msi`) are built from source by
-GitHub Actions ([`release.yml`](.github/workflows/release.yml)) and signed per
-release after manual approval.
+**Windows and macOS binaries are not yet code-signed.** Until then, Windows
+SmartScreen may warn on first run (choose **More info → Run anyway**) and macOS
+Gatekeeper blocks the unsigned `.dmg` (see the macOS note above). Signed builds
+are planned; the verifiable build provenance above is the current integrity
+guarantee.
 
 ### Privacy policy
 
