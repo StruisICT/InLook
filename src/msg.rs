@@ -501,6 +501,44 @@ mod tests {
     }
 
     #[test]
+    fn technical_surfaces_transport_headers_end_to_end() {
+        // When a .msg preserves PR_TRANSPORT_MESSAGE_HEADERS (0x007D), the
+        // technical view parses it AND the rendered panel shows the Received
+        // delivery path + authentication results for the .msg too.
+        use std::io::Write;
+        let u16le = |s: &str| -> Vec<u8> { s.encode_utf16().flat_map(u16::to_le_bytes).collect() };
+        let mut cf = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        // Subject so parse() accepts it as a message.
+        cf.create_stream("/__substg1.0_0037001F")
+            .unwrap()
+            .write_all(&u16le("routed message"))
+            .unwrap();
+        let hdrs = "Received: from mx.example by dest.example\r\n\
+                    Received: from origin.example by mx.example\r\n\
+                    Authentication-Results: mx.example; spf=pass; dkim=pass\r\n\
+                    Message-ID: <routed@example>\r\n";
+        cf.create_stream("/__substg1.0_007D001F")
+            .unwrap()
+            .write_all(&u16le(hdrs))
+            .unwrap();
+        cf.flush().unwrap();
+        let bytes = cf.into_inner().into_inner();
+
+        let t = technical(&bytes);
+        let th = t.transport_headers.expect("transport headers parsed");
+        assert!(th.contains("Authentication-Results"));
+        assert!(t
+            .properties
+            .iter()
+            .any(|(l, _)| l.starts_with("PR_TRANSPORT_MESSAGE_HEADERS ")));
+
+        let html = crate::render::render_file_to_html(&bytes, std::path::Path::new("routed.msg"));
+        assert!(html.contains("spf=pass"), "auth results surfaced");
+        assert!(html.contains("origin.example"), "delivery path surfaced");
+        assert!(!html.contains("No Received headers"));
+    }
+
+    #[test]
     fn filetime_formatting() {
         // 2026-07-17 12:00:00 UTC
         let ft = (1_784_289_600_i64 + 11_644_473_600) as u64 * 10_000_000;
