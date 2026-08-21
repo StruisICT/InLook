@@ -45,6 +45,39 @@ Pre-built binaries are attached to each
 > **right-click → Open → Open**, or run
 > `xattr -dr com.apple.quarantine /Applications/InLook.app`.
 
+### Enterprise / IT deployment (Windows MSI)
+
+The `inlook-*.msi` is a **per-machine** installer built for mass deployment via
+Group Policy, Microsoft Intune, SCCM/Configuration Manager, PDQ Deploy, or a
+login script. It installs into `Program Files`, registers the `.eml`/`.msg`/`.oft`
+associations and Start-Menu shortcut for **all users**, and upgrades in place
+(the `UpgradeCode` never changes, so a newer MSI replaces the older version).
+
+The executable **statically links the Visual C++ runtime**, so the MSI is
+self-contained — there is **no VCRedist to deploy**. The only OS requirement is
+the **Edge WebView2 Runtime**, which is present on Windows 10/11 by default; on
+older/stripped images, push the
+[Evergreen WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+first. InLook has **no telemetry**, and its update check is per-user and
+**off by default**, so managed installs never phone home.
+
+```powershell
+# Silent per-machine install (run elevated / as SYSTEM)
+msiexec /i inlook-1.1.1-x86_64.msi /qn
+
+# …with a verbose log, for troubleshooting a rollout
+msiexec /i inlook-1.1.1-x86_64.msi /qn /l*v inlook-install.log
+
+# …to a custom directory
+msiexec /i inlook-1.1.1-x86_64.msi /qn APPLICATIONFOLDER="D:\Apps\InLook"
+
+# Silent uninstall (same MSI, or by ProductCode)
+msiexec /x inlook-1.1.1-x86_64.msi /qn
+```
+
+For deployment channels that consume it, the same version is on **winget**
+(`winget install --scope machine StruisICT.InLook`).
+
 ## Usage
 
 ```
