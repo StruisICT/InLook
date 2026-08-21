@@ -1224,14 +1224,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/html-escape/html-escape-0.2.14.crate",
-        "sha256": "46c1ff2d1cbf39efe5af0900ced8a069b5e61557a17544eb0c4a50239937389e",
-        "dest": "cargo/vendor/html-escape-0.2.14"
+        "url": "https://static.crates.io/crates/html-escape/html-escape-0.2.15.crate",
+        "sha256": "c9356095b4b41197bba32173600e1582792cda618f65d12f68e2e77d273413c5",
+        "dest": "cargo/vendor/html-escape-0.2.15"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"46c1ff2d1cbf39efe5af0900ced8a069b5e61557a17544eb0c4a50239937389e\", \"files\": {}}",
-        "dest": "cargo/vendor/html-escape-0.2.14",
+        "contents": "{\"package\": \"c9356095b4b41197bba32173600e1582792cda618f65d12f68e2e77d273413c5\", \"files\": {}}",
+        "dest": "cargo/vendor/html-escape-0.2.15",
         "dest-filename": ".cargo-checksum.json"
     },
     {
@@ -1640,14 +1640,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/mail-parser/mail-parser-0.11.5.crate",
-        "sha256": "47785d444be4d32c1709171c6219a90f667c0ad0ffe68b4b179e794f31f4f9e8",
-        "dest": "cargo/vendor/mail-parser-0.11.5"
+        "url": "https://static.crates.io/crates/mail-parser/mail-parser-0.11.6.crate",
+        "sha256": "4084ec5c2f90b341d0c70990e92a23b128f75ca14fc1dd5edd8fd5c9b417da4d",
+        "dest": "cargo/vendor/mail-parser-0.11.6"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"47785d444be4d32c1709171c6219a90f667c0ad0ffe68b4b179e794f31f4f9e8\", \"files\": {}}",
-        "dest": "cargo/vendor/mail-parser-0.11.5",
+        "contents": "{\"package\": \"4084ec5c2f90b341d0c70990e92a23b128f75ca14fc1dd5edd8fd5c9b417da4d\", \"files\": {}}",
+        "dest": "cargo/vendor/mail-parser-0.11.6",
         "dest-filename": ".cargo-checksum.json"
     },
     {
@@ -1726,6 +1726,19 @@
         "type": "inline",
         "contents": "{\"package\": \"c3f42e7bbe13d351b6bead8286a43aac9534b82bd3cc43e47037f012ebfd62d4\", \"files\": {}}",
         "dest": "cargo/vendor/ndk-0.9.0",
+        "dest-filename": ".cargo-checksum.json"
+    },
+    {
+        "type": "archive",
+        "archive-type": "tar-gzip",
+        "url": "https://static.crates.io/crates/ndk-context/ndk-context-0.1.1.crate",
+        "sha256": "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b",
+        "dest": "cargo/vendor/ndk-context-0.1.1"
+    },
+    {
+        "type": "inline",
+        "contents": "{\"package\": \"27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b\", \"files\": {}}",
+        "dest": "cargo/vendor/ndk-context-0.1.1",
         "dest-filename": ".cargo-checksum.json"
     },
     {
@@ -3109,27 +3122,27 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/tao/tao-0.35.3.crate",
-        "sha256": "d1c93047acf68669466a34690ac58cca7010bd1b201e1ec86f1fd0a75d3dd4a9",
-        "dest": "cargo/vendor/tao-0.35.3"
+        "url": "https://static.crates.io/crates/tao/tao-0.36.0.crate",
+        "sha256": "e9fa4618f999c4249db1681cba0a19b890718f274de7fa93c445d46bd3a8a999",
+        "dest": "cargo/vendor/tao-0.36.0"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"d1c93047acf68669466a34690ac58cca7010bd1b201e1ec86f1fd0a75d3dd4a9\", \"files\": {}}",
-        "dest": "cargo/vendor/tao-0.35.3",
+        "contents": "{\"package\": \"e9fa4618f999c4249db1681cba0a19b890718f274de7fa93c445d46bd3a8a999\", \"files\": {}}",
+        "dest": "cargo/vendor/tao-0.36.0",
         "dest-filename": ".cargo-checksum.json"
     },
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/tao-macros/tao-macros-0.1.3.crate",
-        "sha256": "f4e16beb8b2ac17db28eab8bca40e62dbfbb34c0fcdc6d9826b11b7b5d047dfd",
-        "dest": "cargo/vendor/tao-macros-0.1.3"
+        "url": "https://static.crates.io/crates/tao-macros/tao-macros-0.1.4.crate",
+        "sha256": "5f7eeb6d99155545da6150a1795945f16ac9c178deb2a5f2e74d776107bd5849",
+        "dest": "cargo/vendor/tao-macros-0.1.4"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"f4e16beb8b2ac17db28eab8bca40e62dbfbb34c0fcdc6d9826b11b7b5d047dfd\", \"files\": {}}",
-        "dest": "cargo/vendor/tao-macros-0.1.3",
+        "contents": "{\"package\": \"5f7eeb6d99155545da6150a1795945f16ac9c178deb2a5f2e74d776107bd5849\", \"files\": {}}",
+        "dest": "cargo/vendor/tao-macros-0.1.4",
         "dest-filename": ".cargo-checksum.json"
     },
     {
