@@ -339,8 +339,10 @@ pub(crate) fn string_prop(
 
 fn utf16le_lossy(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes(*c))
         .collect();
     String::from_utf16_lossy(&units)
 }
@@ -362,7 +364,7 @@ fn fixed_props_filetime(cf: &mut CompoundFile<Cursor<&[u8]>>) -> Option<u64> {
 fn scan_filetime_entries(entries: &[u8]) -> Option<u64> {
     let mut submit = None;
     let mut delivery = None;
-    for entry in entries.chunks_exact(16) {
+    for entry in entries.as_chunks::<16>().0 {
         let tag = u32::from_le_bytes([entry[0], entry[1], entry[2], entry[3]]);
         let (prop_type, prop_id) = ((tag & 0xFFFF) as u16, (tag >> 16) as u16);
         if prop_type != 0x0040 {
