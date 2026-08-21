@@ -169,11 +169,11 @@ versions or `CHANGELOG.md`.
 | `.cargo/config.toml` | Pins `+crt-static` (MSVC) so the EXE statically links the VC++ runtime and launches on a clean Windows install. **Keep it** — removing it reintroduces the `0xC0000135` crash. |
 | `build.rs` + `winresource` build-dep | Windows-only: embeds `assets/inlook.ico` + version metadata (ProductName/Company/FileVersion) into `inlook.exe`. |
 | `wix/main.wxs` | Windows MSI manifest. **`UpgradeCode` must never change** (keeps upgrades in-place). Version comes from `$(var.Version)`. Icon comes from `assets/inlook.ico` (never the EXE). |
-| `packaging/signpath/README.md` | **SignPath Foundation code signing** (the active signing route): free OSS Authenticode cert, wired into `release.yml` behind the `SIGNPATH_ORGANIZATION_ID` var + `SIGNPATH_API_TOKEN` secret; every release needs a manual approval in the SignPath portal. The README's "Code signing policy" section is a Foundation requirement — keep it accurate. |
-| `scripts/sign-windows.ps1` | Legacy PFX signing fallback. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set (newly issued certs no longer come as PFX — SignPath above is the real route). |
+| `packaging/signpath/README.md` | **SignPath Foundation code signing — NOT ACTIVE.** The OSS application was **declined 2026-07-29** (insufficient public visibility), so Windows builds ship **UNSIGNED**. The pipeline is wired but dormant behind the `SIGNPATH_ORGANIZATION_ID` var + `SIGNPATH_API_TOKEN` secret (unset). Doc retained for a future reapplication / paid sub. Current integrity story is SLSA provenance + SBOM (README "Build integrity & code signing"). Don't re-assert active SignPath signing unless it actually goes live. |
+| `scripts/sign-windows.ps1` | Legacy PFX signing fallback. No-op unless secrets `WINDOWS_CERT_PFX_BASE64` + `WINDOWS_CERT_PASSWORD` are set (newly issued certs no longer come as PFX). No Windows signing route is active today (SignPath declined). |
 | `Cargo.toml` `[package.metadata.deb]` | Debian `.deb` config (incl. hicolor icon assets). |
 | `scripts/build-appimage.sh`, `scripts/build-dmg.sh`, `scripts/generate-icons.py` | Linux AppImage / macOS dmg builders; icon-set generator. `build-dmg.sh` code-signs with the hardened runtime when `APPLE_SIGNING_IDENTITY` is set. |
-| `packaging/macos/` | Apple Developer ID signing + notarization: wired into `release.yml` behind the `APPLE_*` secrets/variable, gated like SignPath (unsigned until configured). See its `README.md` for the one-time setup. `assets/macos/entitlements.plist` holds the hardened-runtime entitlements (JIT for WKWebView only). |
+| `packaging/macos/` | Apple Developer ID signing + notarization: wired into `release.yml`, gated behind the `APPLE_*` secrets/variable (unset → `.dmg` ships unsigned, same as Windows). See its `README.md` for the one-time setup. `assets/macos/entitlements.plist` holds the hardened-runtime entitlements (JIT for WKWebView only). |
 | `assets/` | `inlook.ico` (Windows), `inlook.png` + `icons/inlook-*.png` (Linux hicolor), `inlook.desktop`, `Info.plist` (macOS). |
 | `packaging/winget/` | winget submission notes + validated reference manifest (`StruisICT.InLook`). See its `README.md` and the PR #379422 post-mortem. |
 | `packaging/flatpak/` | Flathub submission (`com.struisict.InLook.*`). See its own `README.md`; regenerate `generated-sources.json` whenever `Cargo.lock` changes. |
@@ -192,10 +192,13 @@ smoke test.
 
 ## 8. Current state (update this section as work lands)
 
-- **Version:** approaching **1.0.0** (last release 0.9.0). Features shipped
+- **Version:** **1.0.0** released; `main` is on the 1.0.x line. Features shipped
   since 0.5.0: `.msg`/`.oft` support, attachment save + nested-message open,
   inline `cid:` images, opt-in + on-demand update check, welcome screen with
-  drag-drop + About menu, window icon, per-process WebView2 data folder.
+  drag-drop + About menu, window icon, per-process WebView2 data folder, and the
+  opt-in **technical details** panel (`#technical` overlay). On Linux the
+  `.desktop` entry + a shared-mime-info file (`assets/inlook.xml`) register both
+  `application/vnd.ms-outlook` (`.msg`/`.oft`) and the `.eml` types.
 - **Deps:** `tao` is on **0.35** (the multi-major jump built cleanly with wry
   0.45 — they're decoupled via `raw-window-handle`; verified GUI at runtime).
   `wry` stays at 0.45 (bumping to 0.55 is a separate, larger API migration —
@@ -205,22 +208,14 @@ smoke test.
 ## 9. Roadmap / ideas (not yet built)
 
 Prioritised, viewer-appropriate features:
-1. **Power-user / technical view** — an opt-in panel for people who want the
-   plumbing, not just the rendered message. Off by default so the normal view
-   stays clean; toggled from the app bar (and pure-CSS, no scripts, like the
-   About overlay). Should surface:
-   - **All headers** verbatim, plus the **raw RFC 822 source** ("View source").
-   - **Routing** — the `Received:` hop chain, parsed and in delivery order.
-   - **Authentication results** — SPF / DKIM / DMARC pass/fail from
-     `Authentication-Results` / `Received-SPF` (display only, no revalidation).
-   - **MIME structure** — the part tree with content-types, encodings, sizes;
-     for `.msg`, the parsed MAPI properties / named streams.
-   - **Metadata** — message size, dates (Date vs Received), Message-ID.
-   Keep everything HTML-escaped and offline; this is inspection, not action.
-2. **Plain-text ↔ HTML toggle** when both parts exist.
+1. **Plain-text ↔ HTML toggle** when both parts exist.
 
 (Shipped, formerly on this list: save/open attachments, inline `cid:` images,
-drag-and-drop + multi-file open — see section 8 / CHANGELOG.)
+drag-and-drop + multi-file open, and the **power-user / technical view** — an
+opt-in `#technical` overlay (pure-CSS, no scripts, HTML-escaped, offline) with
+metadata, MIME structure / MAPI properties, the `Received:` delivery path,
+authentication results, all headers verbatim, and a size-capped raw source.
+See section 8 / CHANGELOG.)
 
 When you pick one up, add a test, follow the commit convention, and update
 sections 8–9 here.

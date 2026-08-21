@@ -155,6 +155,150 @@ pub fn parse(bytes: &[u8]) -> Option<Msg> {
     })
 }
 
+/// Inspection data for the power-user "Technical details" panel, read straight
+/// from the compound file. Kept separate from [`parse`] (which only reads what
+/// the normal view renders) so the panel can show the plumbing without changing
+/// the hot path.
+#[derive(Default)]
+pub struct MsgTechnical {
+    /// PR_TRANSPORT_MESSAGE_HEADERS (0x007D) — the original RFC 822 header
+    /// block, when the producer preserved it. Lets the panel show real
+    /// Received/authentication headers for `.msg` too. `None` if not stored.
+    pub transport_headers: Option<String>,
+    /// One `(label, detail)` per root-level MAPI property stream, sorted by
+    /// tag. `detail` is a short string preview for string-typed properties,
+    /// otherwise the stream size.
+    pub properties: Vec<(String, String)>,
+    /// Number of `__recip_version1.0_*` recipient sub-storages.
+    pub recipient_count: usize,
+    /// Number of `__attach_version1.0_*` attachment sub-storages.
+    pub attachment_count: usize,
+}
+
+/// Read the technical/inspection view of a `.msg`: transport headers plus a
+/// listing of the root MAPI property streams. Hostile input degrades to an
+/// empty result rather than failing.
+pub fn technical(bytes: &[u8]) -> MsgTechnical {
+    let mut t = MsgTechnical::default();
+    let Ok(mut cf) = CompoundFile::open(Cursor::new(bytes)) else {
+        return t;
+    };
+    t.transport_headers = string_prop(&mut cf, "", "007D");
+
+    // Collect the root listing first (drops the read borrow) so we can re-read
+    // individual streams for string previews inside the loop.
+    let entries: Vec<(String, bool, u64)> = cf
+        .read_root_storage()
+        .map(|e| (e.name().to_string(), e.is_stream(), e.len()))
+        .collect();
+
+    let mut props: Vec<(String, String, String)> = Vec::new(); // (tag, label, detail)
+    for (name, is_stream, len) in entries {
+        if name.starts_with("__attach_version1.0_") {
+            t.attachment_count += 1;
+            continue;
+        }
+        if name.starts_with("__recip_version1.0_") {
+            t.recipient_count += 1;
+            continue;
+        }
+        if !is_stream {
+            continue;
+        }
+        let Some(tag) = name.strip_prefix("__substg1.0_") else {
+            continue;
+        };
+        // A hostile .msg can name streams with multibyte characters, so slice
+        // via `get` (char-boundary-safe) rather than `tag[0..4]` which would
+        // panic mid-character. A real MAPI tag is 8 ASCII hex digits.
+        let (Some(id), Some(ty)) = (tag.get(0..4), tag.get(4..8)) else {
+            continue;
+        };
+        let tyname = prop_type_name(ty);
+        let pname = prop_name(id);
+        let ty_label = if tyname.is_empty() {
+            format!("0x{ty}")
+        } else {
+            tyname.to_string()
+        };
+        let label = if pname.is_empty() {
+            format!("0x{id} ({ty_label})")
+        } else {
+            format!("{pname} (0x{id}, {ty_label})")
+        };
+        // String-typed properties get a short one-line preview; everything else
+        // (binary, systime, ints) is shown by size only.
+        let detail = if ty.eq_ignore_ascii_case("001F") || ty.eq_ignore_ascii_case("001E") {
+            let val = string_prop(&mut cf, "", id).unwrap_or_default();
+            let mut preview: String = val.chars().take(120).collect();
+            preview = preview.replace(['\r', '\n', '\t'], " ");
+            if val.chars().count() > 120 {
+                format!("\"{preview}…\"")
+            } else {
+                format!("\"{preview}\"")
+            }
+        } else {
+            format!("{len} bytes")
+        };
+        props.push((tag.to_string(), label, detail));
+    }
+    props.sort_by(|a, b| a.0.cmp(&b.0));
+    t.properties = props.into_iter().map(|(_, l, d)| (l, d)).collect();
+    t
+}
+
+/// Human-readable name for a well-known MAPI property id (4 hex digits, no
+/// type). Empty string when unknown — the panel then shows just the hex id.
+fn prop_name(id: &str) -> &'static str {
+    match id.to_ascii_uppercase().as_str() {
+        "0037" => "PR_SUBJECT",
+        "003D" => "PR_SUBJECT_PREFIX",
+        "0E1D" => "PR_NORMALIZED_SUBJECT",
+        "0070" => "PR_CONVERSATION_TOPIC",
+        "001A" => "PR_MESSAGE_CLASS",
+        "0C1A" => "PR_SENDER_NAME",
+        "0C1E" => "PR_SENDER_ADDRTYPE",
+        "0C1F" => "PR_SENDER_EMAIL_ADDRESS",
+        "5D01" => "PR_SENDER_SMTP_ADDRESS",
+        "0E04" => "PR_DISPLAY_TO",
+        "0E03" => "PR_DISPLAY_CC",
+        "0E02" => "PR_DISPLAY_BCC",
+        "1000" => "PR_BODY",
+        "1013" => "PR_HTML",
+        "1009" => "PR_RTF_COMPRESSED",
+        "007D" => "PR_TRANSPORT_MESSAGE_HEADERS",
+        "0039" => "PR_CLIENT_SUBMIT_TIME",
+        "0E06" => "PR_MESSAGE_DELIVERY_TIME",
+        "3007" => "PR_CREATION_TIME",
+        "3008" => "PR_LAST_MODIFICATION_TIME",
+        "0017" => "PR_IMPORTANCE",
+        "0036" => "PR_SENSITIVITY",
+        "3712" => "PR_ATTACH_CONTENT_ID",
+        _ => "",
+    }
+}
+
+/// Human-readable name for a MAPI property type (the low 4 hex digits of a
+/// stream tag). Empty when unknown.
+fn prop_type_name(ty: &str) -> &'static str {
+    match ty.to_ascii_uppercase().as_str() {
+        "001F" => "PT_UNICODE",
+        "001E" => "PT_STRING8",
+        "0102" => "PT_BINARY",
+        "0040" => "PT_SYSTIME",
+        "0003" => "PT_LONG",
+        "0002" => "PT_SHORT",
+        "000B" => "PT_BOOLEAN",
+        "0005" => "PT_DOUBLE",
+        "0014" => "PT_I8",
+        "000D" => "PT_OBJECT",
+        "101F" => "PT_MV_UNICODE",
+        "101E" => "PT_MV_STRING8",
+        "1102" => "PT_MV_BINARY",
+        _ => "",
+    }
+}
+
 /// Attachment storage names at the message root, sorted for a stable order
 /// shared with [`crate::extract`].
 pub(crate) fn attachment_dirs(cf: &mut CompoundFile<Cursor<&[u8]>>) -> Vec<String> {
@@ -195,8 +339,10 @@ pub(crate) fn string_prop(
 
 fn utf16le_lossy(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes(*c))
         .collect();
     String::from_utf16_lossy(&units)
 }
@@ -218,7 +364,7 @@ fn fixed_props_filetime(cf: &mut CompoundFile<Cursor<&[u8]>>) -> Option<u64> {
 fn scan_filetime_entries(entries: &[u8]) -> Option<u64> {
     let mut submit = None;
     let mut delivery = None;
-    for entry in entries.chunks_exact(16) {
+    for entry in entries.as_chunks::<16>().0 {
         let tag = u32::from_le_bytes([entry[0], entry[1], entry[2], entry[3]]);
         let (prop_type, prop_id) = ((tag & 0xFFFF) as u16, (tag >> 16) as u16);
         if prop_type != 0x0040 {
@@ -288,6 +434,70 @@ mod tests {
     fn garbage_is_none() {
         assert!(parse(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1 not a real cfb").is_none());
         assert!(parse(b"").is_none());
+    }
+
+    #[test]
+    fn prop_name_and_type_lookups() {
+        assert_eq!(prop_name("0037"), "PR_SUBJECT");
+        assert_eq!(prop_name("5d01"), "PR_SENDER_SMTP_ADDRESS"); // case-insensitive
+        assert_eq!(prop_name("BEEF"), "");
+        assert_eq!(prop_type_name("001F"), "PT_UNICODE");
+        assert_eq!(prop_type_name("0102"), "PT_BINARY");
+        assert_eq!(prop_type_name("9999"), "");
+    }
+
+    #[test]
+    fn technical_lists_properties_from_a_real_msg() {
+        let bytes = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/plain-text.msg"),
+        )
+        .unwrap();
+        let t = technical(&bytes);
+        // The subject property stream is enumerated, named, and previewed.
+        let subject = t
+            .properties
+            .iter()
+            .find(|(label, _)| label.starts_with("PR_SUBJECT "))
+            .expect("subject property listed");
+        assert!(subject.0.contains("0x0037"));
+        assert!(subject.0.contains("PT_UNICODE"));
+        assert!(subject.1.starts_with('"')); // string preview, quoted
+    }
+
+    #[test]
+    fn technical_on_garbage_is_empty_not_panic() {
+        let t = technical(b"\xD0\xCF\x11\xE0 not a real cfb");
+        assert!(t.transport_headers.is_none());
+        assert!(t.properties.is_empty());
+    }
+
+    #[test]
+    fn technical_survives_multibyte_stream_names() {
+        // Regression for a fuzzer-found panic: a hostile .msg named a property
+        // stream so a multibyte char straddled the tag slice boundary, and
+        // byte-indexing `tag[0..4]` panicked. The malformed stream must be
+        // skipped, not crash, while a valid property still lists.
+        use std::io::Write;
+        let u16le = |s: &str| -> Vec<u8> { s.encode_utf16().flat_map(u16::to_le_bytes).collect() };
+        let mut cf = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        cf.create_stream("/__substg1.0_abc\u{6e65}xyz")
+            .unwrap()
+            .write_all(b"x")
+            .unwrap();
+        cf.create_stream("/__substg1.0_0037001F")
+            .unwrap()
+            .write_all(&u16le("Hi"))
+            .unwrap();
+        cf.flush().unwrap();
+        let bytes = cf.into_inner().into_inner();
+
+        let t = technical(&bytes); // must not panic
+        assert!(t
+            .properties
+            .iter()
+            .any(|(l, _)| l.starts_with("PR_SUBJECT ")));
+        // The full render entry point must be panic-free on this input too.
+        let _ = crate::render::render_file_to_html(&bytes, std::path::Path::new("x.msg"));
     }
 
     #[test]

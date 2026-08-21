@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.1](https://github.com/StruisICT/InLook/compare/v1.1.0...v1.1.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **assets:** remove baked-in checkerboard from the app icon ([#85](https://github.com/StruisICT/InLook/issues/85)) ([2066e4b](https://github.com/StruisICT/InLook/commit/2066e4b94d6dc13422124ff85186538e47028285))
+
+## [1.1.0](https://github.com/StruisICT/InLook/compare/v1.0.0...v1.1.0) (2026-08-03)
+
+
+### Features
+
+* opt-in technical details panel (+ Linux .msg registration fix) ([#79](https://github.com/StruisICT/InLook/issues/79)) ([7fcb6dc](https://github.com/StruisICT/InLook/commit/7fcb6dcc2534162fb48118e0e4796a6be44d903f))
+
 ## [1.0.0](https://github.com/StruisICT/InLook/compare/v0.9.0...v1.0.0) (2026-07-21)
 
 

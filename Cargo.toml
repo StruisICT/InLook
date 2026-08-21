@@ -1,6 +1,6 @@
 [package]
 name = "inlook"
-version = "1.0.0"
+version = "1.1.1"
 edition = "2021"
 rust-version = "1.88"
 description = "InLook — fast viewer for EML and Outlook MSG email files. Free Software from Struis ICT."
@@ -65,6 +65,7 @@ priority = "optional"
 assets = [
     ["target/release/inlook", "usr/bin/", "755"],
     ["assets/inlook.desktop", "usr/share/applications/", "644"],
+    ["assets/inlook.xml", "usr/share/mime/packages/", "644"],
     ["LICENSE-MIT", "usr/share/doc/inlook/", "644"],
     ["LICENSE-APACHE", "usr/share/doc/inlook/", "644"],
     ["assets/icons/inlook-16.png",   "usr/share/icons/hicolor/16x16/apps/inlook.png",   "644"],

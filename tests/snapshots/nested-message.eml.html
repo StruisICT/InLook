@@ -60,6 +60,9 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appbar .brand-app{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em;}
 .appbar .actions a{color:var(--fg);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px;}
 .appbar .actions a:hover{background:var(--card-soft);}
+.tech-open{margin:0 0 14px;}
+.tech-open a{display:inline-block;font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;}
+.tech-open a:hover{background:var(--accent);color:var(--card);}
 .about-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;}
 .about-overlay:target{display:flex;}
 .about-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);}
@@ -73,6 +76,21 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .about-card .links{font-size:12px;color:var(--muted);}
 .about-card .links a{color:var(--accent);text-decoration:none;}
 .about-card .close{position:absolute;top:8px;right:14px;color:var(--muted);text-decoration:none;font-size:20px;line-height:1;}
+.tech-overlay{position:fixed;inset:0;display:none;z-index:60;}
+.tech-overlay:target{display:block;}
+.tech-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.tech-card{position:relative;margin:24px auto;max-width:880px;width:92%;max-height:calc(100vh - 48px);overflow:auto;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+.tech-card h2{margin:0 0 4px;color:var(--accent);font-size:17px;}
+.tech-card h3{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;}
+.tech-card .close{position:absolute;top:10px;right:16px;color:var(--muted);text-decoration:none;font-size:22px;line-height:1;}
+.tech-card table.kv{border-collapse:collapse;width:100%;}
+.tech-card table.kv th{text-align:left;vertical-align:top;padding:2px 12px 2px 0;color:var(--muted);font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card table.kv td{padding:2px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-word;white-space:pre-wrap;}
+.tech-card ol,.tech-card ul{margin:0;padding-left:22px;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.tech-card ul.mime-tree{list-style:none;padding-left:4px;}
+.tech-card li{padding:2px 0;word-break:break-word;}
+.tech-card pre.src{background:var(--card-soft);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:360px;font-size:12px;white-space:pre-wrap;word-break:break-word;}
+.tech-card .none{color:var(--muted);font-size:12px;}
 
 </style>
 </head>
@@ -81,6 +99,7 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 <header>
   <div class="brand">Struis ICT — Free Software</div>
   <h1>Fwd: original message</h1>
+  <div class="tech-open"><a href="#technical">&#9881; Technical details</a></div>
   <table class="headers">
     <tr><th>From</th><td>carol@example.com</td></tr>
     <tr><th>To</th><td>bob@example.com</td></tr>
@@ -99,5 +118,28 @@ footer .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   <span>InLook · Free Software · Struis ICT</span>
 </footer>
 <div id="about" class="about-overlay"><a href="#" class="about-backdrop" aria-label="Close"></a><div class="about-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>InLook</h2><div class="ver">Version <VERSION> &middot; Free Software</div><a class="check-update" href="inlook://check-update">Check for updates</a><p>A fast, safe viewer for .eml and Outlook .msg email files, from Struis ICT.</p><a class="coffee" href="https://buymeacoffee.com/struis112">&#9749; Buy me a coffee</a><div class="links"><a href="https://github.com/StruisICT/InLook">GitHub</a> &middot; <a href="https://struisict.com">struisict.com</a></div></div></div>
+<div id="technical" class="tech-overlay"><a href="#" class="tech-backdrop" aria-label="Close"></a><div class="tech-card"><a href="#" class="close" aria-label="Close">&#215;</a><h2>Technical details</h2><h3>Metadata</h3><table class="kv"><tr><th>Date</th><td>Fri, 17 Jul 2026 10:00:00 +0000</td></tr><tr><th>Size</th><td>542 B</td></tr><tr><th>MIME parts</th><td>3</td></tr><tr><th>Attachments</th><td>1</td></tr></table><h3>MIME structure</h3><ul class="mime-tree"><li>multipart/mixed — 2 parts, 7bit</li><li>&nbsp;&nbsp;&nbsp;text/plain — 26 B, 7bit</li><li>&nbsp;&nbsp;&nbsp;message/rfc822 — nested message, 7bit — original.eml</li><li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(no content-type) — 35 B, 7bit</li></ul><h3>Delivery path (oldest first)</h3><p class="none">No Received headers.</p><h3>Authentication</h3><p class="none">No authentication headers.</p><h3>All headers</h3><table class="kv"><tr><th>From</th><td>carol@example.com</td></tr><tr><th>To</th><td>bob@example.com</td></tr><tr><th>Subject</th><td>Fwd: original message</td></tr><tr><th>Date</th><td>Fri, 17 Jul 2026 10:00:00 +0000</td></tr><tr><th>MIME-Version</th><td>1.0</td></tr><tr><th>Content-Type</th><td>multipart/mixed; boundary="MIX1"</td></tr></table><h3>Raw source</h3><pre class="src">From: carol@example.com
+To: bob@example.com
+Subject: Fwd: original message
+Date: Fri, 17 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MIX1"
+
+--MIX1
+Content-Type: text/plain; charset=utf-8
+
+See the attached original.
+--MIX1
+Content-Type: message/rfc822; name="original.eml"
+Content-Disposition: attachment; filename="original.eml"
+
+From: dave@example.com
+To: carol@example.com
+Subject: The original
+Date: Thu, 16 Jul 2026 08:00:00 +0000
+
+This is the original inner message.
+--MIX1--
+</pre></div></div>
 </body>
 </html>
