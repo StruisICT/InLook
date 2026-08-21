@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/StruisICT/InLook/compare/v1.1.0...v1.1.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **assets:** remove baked-in checkerboard from the app icon ([#85](https://github.com/StruisICT/InLook/issues/85)) ([2066e4b](https://github.com/StruisICT/InLook/commit/2066e4b94d6dc13422124ff85186538e47028285))
+
 ## [1.1.0](https://github.com/StruisICT/InLook/compare/v1.0.0...v1.1.0) (2026-08-03)
 
 
