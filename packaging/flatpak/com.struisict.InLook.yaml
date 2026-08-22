@@ -39,6 +39,6 @@ modules:
     sources:
       - type: git
         url: https://github.com/StruisICT/InLook.git
-        tag: v1.1.2
-        commit: f667df7dacb7c9a1e79f66a554b2b7efea974d24
+        tag: v1.2.0
+        commit: 10b3cca799e654f919c774531e1c64920a1d975d
       - generated-sources.json
