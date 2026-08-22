@@ -1,6 +1,6 @@
 [package]
 name = "inlook"
-version = "1.1.2"
+version = "1.2.0"
 edition = "2021"
 rust-version = "1.88"
 description = "InLook — fast viewer for EML and Outlook MSG email files. Free Software from Struis ICT."

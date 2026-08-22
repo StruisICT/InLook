@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/StruisICT/InLook/compare/v1.1.2...v1.2.0) (2026-08-22)
+
+
+### Features
+
+* opt-in remote images (per-message "Load images") ([#104](https://github.com/StruisICT/InLook/issues/104)) ([ec5f50c](https://github.com/StruisICT/InLook/commit/ec5f50c4d35ce76f28c9e0c252e7a263256b0c95))
+
 ## [1.1.2](https://github.com/StruisICT/InLook/compare/v1.1.1...v1.1.2) (2026-08-21)
 
 
