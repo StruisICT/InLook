@@ -12,9 +12,10 @@ email tries to sneak in.
   for the window and [`wry`](https://crates.io/crates/wry) (WebView2 on Windows,
   WebKitGTK on Linux, WKWebView on macOS) to render the email body.
 - **Safe by default** — HTML bodies are wrapped in a fully sandboxed `<iframe>`
-  with a strict Content-Security-Policy. No remote images, no tracking pixels,
-  no scripts, no network. Embedded (`cid:`) images render inline from the
-  message itself — never from the network.
+  with a strict Content-Security-Policy: no scripts, no forms, no network.
+  Remote images and tracking pixels are **blocked by default**; a per-message
+  **Load images** button lets you fetch them on demand when you trust the
+  sender. Embedded (`cid:`) images always render inline from the message itself.
 - **Attachments** — click to save any attachment (always via Save As, never
   auto-run); attached emails open in a new InLook window.
 - **Cross-platform** — Windows (MSI + exe), Linux (`.deb` + AppImage + Flatpak),
@@ -150,8 +151,10 @@ guarantee.
 ### Privacy policy
 
 InLook is **offline by default**: it has no telemetry and phones nothing home.
-Email content stays on your machine, and remote content inside emails is never
-loaded (blocked by CSP + iframe sandbox).
+Email content stays on your machine. Remote content inside emails is blocked by
+CSP + iframe sandbox; the only exception is that you can explicitly click
+**Load images** on a message to fetch *that* message's remote images — scripts,
+remote fonts, and other remote resources are never loaded regardless.
 
 InLook only ever contacts the network to check for a newer version (Windows
 only), and only when you ask it to:
