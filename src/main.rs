@@ -38,6 +38,9 @@ enum UserEvent {
     Browse,
     /// Load a specific file (e.g. one dropped onto the window).
     OpenFile(PathBuf),
+    /// The "Load images" banner was clicked — re-render the current message
+    /// with remote images enabled (opt-in, per message).
+    LoadRemoteImages,
 }
 
 fn main() -> ExitCode {
@@ -131,6 +134,11 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
     // swapped in place when a new file is loaded.
     let doc = Arc::new(Mutex::new(Vec::<u8>::new()));
     let current_bytes: Arc<Mutex<Option<Arc<Vec<u8>>>>> = Arc::new(Mutex::new(None));
+    // Path of the currently-open message (to re-render on the remote-images
+    // toggle), and whether remote images are enabled for it. `allow_remote` is
+    // reset to false on every new file — opting in is per message.
+    let current_path: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
+    let allow_remote: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 
     let mut title = APP_NAME.to_string();
     match &initial {
@@ -139,6 +147,7 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
                 let b = Arc::new(b);
                 *doc.lock().unwrap() = render::render_file_to_html(&b, path).into_bytes();
                 *current_bytes.lock().unwrap() = Some(b);
+                *current_path.lock().unwrap() = Some(path.clone());
                 title = window_title(path);
             }
             Err(e) => {
@@ -173,6 +182,7 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
     let mut web_context = wry::WebContext::new(webview_data_dir());
 
     let doc_proto = doc.clone();
+    let proto_allow_remote = allow_remote.clone();
     let nav_bytes = current_bytes.clone();
     let nav_proxy = proxy.clone();
     let drop_proxy = proxy.clone();
@@ -190,12 +200,18 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
         .with_web_context(&mut web_context)
         .with_custom_protocol("inlookview".to_string(), move |_request| {
             let body = doc_proto.lock().unwrap().clone();
+            // The `srcdoc` body iframe inherits this (outer) CSP, so this header
+            // is the binding constraint on remote image loads. It's relaxed in
+            // lockstep with the page markup only when the user opts in for the
+            // current message; scripts/forms stay forbidden either way.
+            let csp = if *proto_allow_remote.lock().unwrap() {
+                "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; frame-src data: 'self';"
+            } else {
+                "default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';"
+            };
             wry::http::Response::builder()
                 .header("Content-Type", "text/html; charset=utf-8")
-                .header(
-                    "Content-Security-Policy",
-                    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';",
-                )
+                .header("Content-Security-Policy", csp)
                 .body(std::borrow::Cow::from(body))
                 .unwrap_or_else(|_| wry::http::Response::new(std::borrow::Cow::from(Vec::new())))
         })
@@ -225,6 +241,8 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
 
     let doc_loop = doc.clone();
     let bytes_loop = current_bytes.clone();
+    let path_loop = current_path.clone();
+    let allow_remote_loop = allow_remote.clone();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -241,11 +259,40 @@ fn open_viewer(initial: Option<PathBuf>) -> ExitCode {
                     .add_filter("Email message", &["eml", "msg", "oft"])
                     .pick_file()
                 {
-                    load_file(&webview, &window, &p, &doc_loop, &bytes_loop);
+                    load_file(
+                        &webview,
+                        &window,
+                        &p,
+                        &doc_loop,
+                        &bytes_loop,
+                        &path_loop,
+                        &allow_remote_loop,
+                    );
                 }
             }
             Event::UserEvent(UserEvent::OpenFile(p)) => {
-                load_file(&webview, &window, &p, &doc_loop, &bytes_loop);
+                load_file(
+                    &webview,
+                    &window,
+                    &p,
+                    &doc_loop,
+                    &bytes_loop,
+                    &path_loop,
+                    &allow_remote_loop,
+                );
+            }
+            Event::UserEvent(UserEvent::LoadRemoteImages) => {
+                // Re-render the current message with remote images enabled, then
+                // reload so the relaxed CSP (page markup + protocol header) takes
+                // effect. Stays in effect only until a different file is opened.
+                *allow_remote_loop.lock().unwrap() = true;
+                let bytes = bytes_loop.lock().unwrap().clone();
+                let path = path_loop.lock().unwrap().clone();
+                if let (Some(b), Some(p)) = (bytes, path) {
+                    *doc_loop.lock().unwrap() =
+                        render::render_file_to_html_opts(&b, &p, true).into_bytes();
+                    let _ = webview.load_url(INLOOKVIEW_URL);
+                }
             }
             #[cfg(windows)]
             Event::RedrawEventsCleared if update_check_pending => {
@@ -282,19 +329,26 @@ fn window_title(path: &Path) -> String {
 
 /// Render `path` into the shared document and reload the WebView so it swaps to
 /// the new email in place. On a read error the current view is left untouched.
+#[allow(clippy::too_many_arguments)]
 fn load_file(
     webview: &wry::WebView,
     window: &tao::window::Window,
     path: &Path,
     doc: &std::sync::Mutex<Vec<u8>>,
     current_bytes: &std::sync::Mutex<Option<std::sync::Arc<Vec<u8>>>>,
+    current_path: &std::sync::Mutex<Option<PathBuf>>,
+    allow_remote: &std::sync::Mutex<bool>,
 ) {
     match read_eml(path) {
         Ok(b) => {
             let b = std::sync::Arc::new(b);
+            // A new message always starts with remote images blocked — opting in
+            // is per message.
+            *allow_remote.lock().unwrap() = false;
             let html = render::render_file_to_html(&b, path);
             *doc.lock().unwrap() = html.into_bytes();
             *current_bytes.lock().unwrap() = Some(b);
+            *current_path.lock().unwrap() = Some(path.to_path_buf());
             let _ = webview.load_url(INLOOKVIEW_URL);
             window.set_title(&window_title(path));
         }
@@ -386,6 +440,11 @@ fn handle_navigation(
     // About → "Check for updates": an explicit, on-demand check.
     if url == "inlook://check-update" || url == "inlook://check-update/" {
         check_for_updates();
+        return false;
+    }
+    // "Load images" banner → opt in to remote images for the current message.
+    if url == "inlook://load-remote-images" || url == "inlook://load-remote-images/" {
+        let _ = proxy.send_event(UserEvent::LoadRemoteImages);
         return false;
     }
     // Our own About-panel links (Buy Me a Coffee / GitHub / site) → system

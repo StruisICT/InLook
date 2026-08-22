@@ -49,8 +49,14 @@ network, no sending.
   via `srcdoc`, *and* the inner document carries a strict CSP
   (`default-src 'none'; img-src data:; ...`). Two independent layers.
 - The outer page's strict CSP is sent both as an HTTP header (from the custom
-  protocol handler in `main.rs`) and as a `<meta>` tag. No remote anything; inline `data:`
-  images only. No scripts ever run from email content.
+  protocol handler in `main.rs`) and as a `<meta>` tag. No scripts ever run from
+  email content, and no remote resources load — **except** opt-in remote images:
+  clicking the per-message "Load images" banner posts `inlook://load-remote-images`,
+  which re-renders with `render_file_to_html_opts(.., true)` and relaxes **only**
+  `img-src` to `data: https: http:` in all three CSP layers (HTTP header, outer
+  meta, inner iframe meta — the `srcdoc` iframe inherits the header, so all three
+  must move together). Reset to blocked on every new file. Scripts/forms/remote
+  fonts/media stay forbidden. Inline `data:`/`cid:` images always render.
 - `#![deny(unsafe_code)]` is on. The only `unsafe` is explicitly
   `#[allow(unsafe_code)]`-annotated Win32 calls (console attach, shell notify)
   with a `// Reason:` comment. Keep that pattern for any new FFI.
@@ -198,7 +204,8 @@ smoke test.
   drag-drop + About menu, window icon, per-process WebView2 data folder, and the
   opt-in **technical details** panel — a `#technical` overlay opened from a
   button under the subject line (headers, MIME/MAPI structure, `Received:`
-  delivery path, SPF/DKIM/DMARC, raw source). On Linux the `.desktop` entry + a
+  delivery path, SPF/DKIM/DMARC, raw source) — and **opt-in remote images**
+  (per-message "Load images" banner; blocked by default, see §2 security model). On Linux the `.desktop` entry + a
   shared-mime-info file (`assets/inlook.xml`) register both
   `application/vnd.ms-outlook` (`.msg`/`.oft`) and the `.eml` types. 1.1.1 fixed
   the app icon (a transparency-preview checkerboard was baked into the artwork).

@@ -27,10 +27,20 @@ const MAX_SOURCE_BYTES: usize = 64 * 1024;
 /// RFC 822 `.eml` otherwise. This is the single entry point the binary
 /// (and the fuzzer) should use.
 pub fn render_file_to_html(bytes: &[u8], path: &Path) -> String {
+    render_file_to_html_opts(bytes, path, false)
+}
+
+/// Like [`render_file_to_html`], but lets the caller opt into loading the
+/// message's *remote* images (external `http(s)` URLs). Off by default and
+/// reset per message by the binary; enabled only on an explicit user click
+/// (the `inlook://load-remote-images` action from the "Load images" banner).
+/// Remote images are a tracking vector, so this relaxes only the image CSP —
+/// scripts, forms, and the iframe sandbox stay locked down.
+pub fn render_file_to_html_opts(bytes: &[u8], path: &Path, allow_remote_images: bool) -> String {
     if crate::msg::is_msg(bytes) {
-        render_msg_to_html(bytes, path)
+        render_msg(bytes, path, allow_remote_images)
     } else {
-        render_eml_to_html(bytes, path)
+        render_eml(bytes, path, allow_remote_images)
     }
 }
 
@@ -38,6 +48,10 @@ pub fn render_file_to_html(bytes: &[u8], path: &Path) -> String {
 /// loading into a WebView2 surface. The returned page sandboxes any embedded
 /// HTML body, applies a strict CSP, and HTML-escapes every header value.
 pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
+    render_eml(bytes, path, false)
+}
+
+fn render_eml(bytes: &[u8], path: &Path, allow_remote_images: bool) -> String {
     let Some(msg) = MessageParser::default().parse(bytes) else {
         return error_page("Could not parse this file as a valid email message.", path);
     };
@@ -103,6 +117,7 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
         &attachments,
         &technical,
         path,
+        allow_remote_images,
     )
 }
 
@@ -110,6 +125,10 @@ pub fn render_eml_to_html(bytes: &[u8], path: &Path) -> String {
 /// page. Parsing lives in [`crate::msg`]; everything that touches HTML —
 /// escaping, sandboxing, CSP — is shared with the EML path via [`page`].
 pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
+    render_msg(bytes, path, false)
+}
+
+fn render_msg(bytes: &[u8], path: &Path, allow_remote_images: bool) -> String {
     let Some(m) = crate::msg::parse(bytes) else {
         return error_page(
             "Could not parse this file as an Outlook .msg message.",
@@ -141,6 +160,7 @@ pub fn render_msg_to_html(bytes: &[u8], path: &Path) -> String {
         &m.attachments,
         &technical,
         path,
+        allow_remote_images,
     )
 }
 
@@ -555,9 +575,20 @@ fn page(
     attachments: &[AttachmentMeta],
     technical: &TechnicalInfo,
     path: &Path,
+    allow_remote_images: bool,
 ) -> String {
     let body_section = match (body_html, body_text) {
-        (Some(html), _) => render_html_body(&html),
+        (Some(html), _) => {
+            // Show the "remote images blocked / loaded" banner only when the
+            // body actually references remote images, so it never nags on mail
+            // that has none.
+            let banner = if has_remote_images(&html) {
+                remote_images_banner(allow_remote_images)
+            } else {
+                String::new()
+            };
+            format!("{banner}{}", render_html_body(&html, allow_remote_images))
+        }
         (None, Some(text)) => format!(
             r#"<pre class="body-text">{}</pre>"#,
             html_escape::encode_text(&truncate_lossy(&text, MAX_BODY_BYTES))
@@ -583,7 +614,7 @@ fn page(
 <head>
 <meta charset="utf-8">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-src data: 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src {img_csp}; style-src 'unsafe-inline'; frame-src data: 'self';">
 <title>{subject_title} — InLook</title>
 <style>
 :root {{
@@ -622,6 +653,10 @@ iframe.body {{ flex: 1; width: 100%; border: none; min-height: 320px; background
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px;
 }}
 .empty {{ padding: 32px; text-align: center; color: var(--muted); }}
+.rimg-banner {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 24px; font-size: 12px; color: var(--muted); background: var(--card-soft); border-bottom: 1px solid var(--border); }}
+.rimg-banner a {{ color: var(--accent); text-decoration: none; border: 1px solid var(--accent); border-radius: 6px; padding: 3px 10px; white-space: nowrap; }}
+.rimg-banner a:hover {{ background: var(--accent); color: var(--card); }}
+.rimg-banner.loaded {{ color: var(--muted); }}
 .atts {{ padding: 12px 24px 16px; background: var(--card-soft); border-top: 1px solid var(--border); }}
 .atts summary {{ cursor: pointer; font-weight: 600; color: var(--accent); }}
 .atts ul {{ margin: 8px 0 0; padding-left: 20px; list-style: none; }}
@@ -672,7 +707,44 @@ footer .path {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
         about_overlay = about_overlay(),
         technical_overlay = technical_overlay(technical),
         tech_open = TECH_OPEN_BUTTON,
+        img_csp = img_src_csp(allow_remote_images),
     )
+}
+
+/// The `img-src` CSP value: only inline `data:` images by default (no network),
+/// or `data:` plus remote `http(s)` when the user has opted in for this message.
+fn img_src_csp(allow_remote_images: bool) -> &'static str {
+    if allow_remote_images {
+        "data: https: http:"
+    } else {
+        "data:"
+    }
+}
+
+/// True if the (post-`cid`-inlining) HTML body references any *remote* image —
+/// an `<img>` with an `http(s)` src, or a CSS `url(http…)`. Used to decide
+/// whether to show the "remote images blocked" banner.
+fn has_remote_images(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    if lower.contains("url(http") {
+        return true;
+    }
+    lower.split("<img").skip(1).any(|after| {
+        let tag = &after[..after.find('>').unwrap_or(after.len())];
+        tag.contains("src=\"http") || tag.contains("src='http") || tag.contains("src=http")
+    })
+}
+
+/// The per-message banner shown above an HTML body that references remote
+/// images. Blocked by default with a "Load images" action; a quiet confirmation
+/// once loaded. The action is the `inlook://load-remote-images` pseudo-URL,
+/// intercepted by the binary's navigation handler (no script runs).
+fn remote_images_banner(allow_remote_images: bool) -> String {
+    if allow_remote_images {
+        r##"<div class="rimg-banner loaded">&#128444;&#65039; Remote images loaded for this message.</div>"##.to_string()
+    } else {
+        r##"<div class="rimg-banner"><span>&#128274; Remote images are blocked to protect your privacy (they can track when you open a message).</span> <a href="inlook://load-remote-images">Load images</a></div>"##.to_string()
+    }
 }
 
 /// The contextual "Technical details" button rendered under the header block,
@@ -781,19 +853,24 @@ fn base64(data: &[u8]) -> String {
     out
 }
 
-fn render_html_body(html: &str) -> String {
-    // Wrap the email's HTML in our own document with a strict CSP that blocks
-    // remote loads (no tracking pixels, no remote scripts/css). The iframe
-    // sandbox is empty (`sandbox=""`), which disables scripts, forms, popups,
-    // top-navigation, downloads, and same-origin. Defense-in-depth: if the
-    // CSP is bypassed, the sandbox still contains the content.
+fn render_html_body(html: &str, allow_remote_images: bool) -> String {
+    // Wrap the email's HTML in our own document with a strict CSP. By default
+    // it blocks all remote loads (no tracking pixels, no remote scripts/css);
+    // when the user opts in for this message, only `img-src` is relaxed to also
+    // allow remote `http(s)` images — scripts/forms/fonts/media stay blocked.
+    // The iframe sandbox is empty (`sandbox=""`), which disables scripts, forms,
+    // popups, top-navigation, downloads, and same-origin regardless. This inner
+    // CSP is defense-in-depth; the binding one is the HTTP-header CSP on the
+    // custom protocol response (which the `srcdoc` iframe inherits) — the binary
+    // relaxes that in lockstep when remote images are enabled.
     let safe = truncate_lossy(html, MAX_BODY_BYTES);
     let wrapped = format!(
         r#"<!doctype html>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline' data:; font-src data:; media-src data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src {img_csp}; style-src 'unsafe-inline' data:; font-src data:; media-src data:;">
 <style>body{{margin:0;padding:16px 24px;font:14px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif;color:#1a1f2c;}} img{{max-width:100%;height:auto}}</style>
 {safe}"#,
+        img_csp = img_src_csp(allow_remote_images),
     );
     let escaped = html_escape::encode_double_quoted_attribute(&wrapped);
     format!(r#"<iframe class="body" sandbox="" srcdoc="{escaped}"></iframe>"#)
@@ -1130,6 +1207,63 @@ mod tests {
         assert!(html.contains("nested message"));
         // The nested message's own text/html part is walked (deeper indent).
         assert!(html.contains("text/html"));
+    }
+
+    #[test]
+    fn has_remote_images_detection() {
+        assert!(has_remote_images(r#"<p>hi</p><img src="https://x/p.png">"#));
+        assert!(has_remote_images(r#"<img src='http://x/p.gif' width=1>"#));
+        assert!(has_remote_images(
+            r#"<div style="background:url(https://x/bg.png)">"#
+        ));
+        // Inline/embedded images and no-image bodies are not "remote".
+        assert!(!has_remote_images(r#"<img src="cid:logo@x">"#));
+        assert!(!has_remote_images(
+            r#"<img src="data:image/png;base64,AA">"#
+        ));
+        assert!(!has_remote_images("<p>just text, no images</p>"));
+    }
+
+    const REMOTE_IMG_EML: &[u8] =
+        b"From: a@b\r\nSubject: newsletter\r\nContent-Type: text/html\r\n\r\n\
+          <p>Hello</p><img src=\"https://example.com/track.png\">\r\n";
+
+    #[test]
+    fn remote_images_blocked_by_default() {
+        let html = render_eml_to_html(REMOTE_IMG_EML, &PathBuf::from("n.eml"));
+        // CSP allows only data: images — no remote loads.
+        assert!(html.contains("img-src data:;"));
+        assert!(!html.contains("img-src data: https:"));
+        // The opt-in banner is shown with the load action.
+        assert!(html.contains(r##"href="inlook://load-remote-images""##));
+        assert!(html.contains("Load images"));
+        assert!(!html.to_ascii_lowercase().contains("<script"));
+    }
+
+    #[test]
+    fn remote_images_allowed_when_opted_in() {
+        let html = render_file_to_html_opts(REMOTE_IMG_EML, &PathBuf::from("n.eml"), true);
+        // Both the outer page CSP and the inner (escaped) iframe CSP relax
+        // img-src to allow remote http(s) images.
+        assert!(html.contains("img-src data: https: http:"));
+        // Banner switches to the loaded state; no more "Load images" action.
+        assert!(html.contains("Remote images loaded"));
+        assert!(!html.contains("inlook://load-remote-images"));
+        // Everything else stays locked: still no scripts, sandbox intact.
+        assert!(!html.to_ascii_lowercase().contains("<script"));
+        assert!(html.contains(r#"sandbox="""#));
+    }
+
+    #[test]
+    fn no_banner_when_body_has_no_remote_images() {
+        // A cid/inline-only HTML body must not show the remote-images banner.
+        let eml = b"From: a@b\r\nSubject: t\r\nContent-Type: text/html\r\n\r\n\
+                    <p>hi</p><img src=\"cid:logo@x\">\r\n";
+        let html = render_eml_to_html(eml, &PathBuf::from("t.eml"));
+        // No banner element (the `.rimg-banner` CSS class is always defined in
+        // the stylesheet, so assert on the actual div / action instead).
+        assert!(!html.contains(r#"<div class="rimg-banner"#));
+        assert!(!html.contains("inlook://load-remote-images"));
     }
 
     #[test]
