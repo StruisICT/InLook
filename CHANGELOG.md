@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/StruisICT/InLook/compare/v1.2.0...v1.2.1) (2026-08-27)
+
+
+### Miscellaneous Chores
+
+* release 1.2.1 ([#110](https://github.com/StruisICT/InLook/issues/110)) ([f2b1f8d](https://github.com/StruisICT/InLook/commit/f2b1f8d98b96586ffc69020158d9ca1bc40d6b32))
+
 ## [1.2.0](https://github.com/StruisICT/InLook/compare/v1.1.2...v1.2.0) (2026-08-22)
 
 
