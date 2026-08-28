@@ -1640,14 +1640,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/mail-parser/mail-parser-0.11.6.crate",
-        "sha256": "4084ec5c2f90b341d0c70990e92a23b128f75ca14fc1dd5edd8fd5c9b417da4d",
-        "dest": "cargo/vendor/mail-parser-0.11.6"
+        "url": "https://static.crates.io/crates/mail-parser/mail-parser-0.11.7.crate",
+        "sha256": "5d1bb2f9fb98d69b0369be719dc8ab2f535a959e3761128c5c044fae97f68c12",
+        "dest": "cargo/vendor/mail-parser-0.11.7"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"4084ec5c2f90b341d0c70990e92a23b128f75ca14fc1dd5edd8fd5c9b417da4d\", \"files\": {}}",
-        "dest": "cargo/vendor/mail-parser-0.11.6",
+        "contents": "{\"package\": \"5d1bb2f9fb98d69b0369be719dc8ab2f535a959e3761128c5c044fae97f68c12\", \"files\": {}}",
+        "dest": "cargo/vendor/mail-parser-0.11.7",
         "dest-filename": ".cargo-checksum.json"
     },
     {
